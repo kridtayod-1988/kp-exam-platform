@@ -1,6 +1,6 @@
 # KP e-Exam Platform
 
-Frontend prototype แยก repository จาก Portfolio เดิมโดยสิ้นเชิง ออกแบบให้ deploy เป็น static site บน Cloudflare Pages
+Frontend prototype ออกแบบให้ deploy เป็น static site บน Cloudflare Pages
 
 ## โครงสร้าง
 
