@@ -25,8 +25,17 @@
 - Frontend API base URL: `https://kp-exam-api.kridtayod.workers.dev`
 - API year list: `GET /api/exam-years`
 - Google Authentication: **ปิดใช้งานอยู่** (`authEnabled: false`) จนกว่า Auth + Security จะผ่านการตรวจสอบและทดสอบ User/Admin จริง
-- Exam Engine, การบันทึกคำตอบ, server-side scoring, ประวัติผลสอบ, payment และ Admin CRUD ยังไม่ถือว่าเปิดใช้งานจริง
+- Exam Engine frontend รองรับการเริ่ม Attempt, เลือกคำตอบ, เปลี่ยนข้อ และส่งคำตอบผ่าน API adapter แล้ว แต่ API `POST /api/attempts` และ `POST /api/attempts/:attemptId/submit` ยังต้องพัฒนาและทดสอบฝั่ง Server ก่อนใช้งานจริง
+- Server-side scoring, ประวัติผลสอบ, payment และ Admin CRUD ยังไม่ถือว่าเปิดใช้งานจริง
 - หน้าสถิติและแพ็กเกจบางส่วนเป็น UI placeholder และจะต้องเชื่อมข้อมูลจาก API ในเฟสถัดไป
+
+## Exam Engine integration
+
+- API contract: `docs/exam-engine-api-contract.md`
+- Frontend adapter: `js/exam-engine.js`
+- คำตอบเก็บในหน่วยความจำของหน้าเว็บเท่านั้น ไม่ใช้ localStorage/sessionStorage
+- ต้องให้ Server ตรวจสิทธิ์ สร้างชุดข้อสอบ บันทึกคำตอบ และตรวจคะแนน โดยไม่ส่งเฉลยก่อนส่งข้อสอบ
+- การเชื่อมต่อ frontend ยังไม่ยืนยันว่า API endpoints พร้อมใช้งาน และไม่ใช่การเปิดระบบสอบจริง
 
 ## Security notes
 
