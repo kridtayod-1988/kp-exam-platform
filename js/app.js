@@ -59,7 +59,82 @@
   function closeMenu(){sidebar.classList.remove('open');scrim.classList.remove('show');}
   function show(key){if(!views[key])key='dashboard';root.innerHTML=views[key]();document.getElementById('page-title').textContent=titles[key];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===key));closeMenu();if(key==='by-year'&&!years.length){fetchYears().then(list=>{years=list;root.innerHTML=byYear();}).catch(err=>{const alert=document.getElementById('year-alert');if(alert)alert.textContent='ไม่สามารถโหลดปีข้อสอบจาก API ได้ในขณะนี้ ('+err.message+') กรุณาตรวจสอบ API แล้วลองใหม่';});}}
   document.getElementById('main-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)show(b.dataset.view);});
-  root.addEventListener('click',e=>{const go=e.target.closest('[data-go]');if(go){show(go.dataset.go);return;}if(e.target.id==='start-practice'){const year=document.getElementById('exam-year').value;const count=document.getElementById('question-count').value;if(!year){notify('กรุณาเลือกปีข้อสอบ');return;}notify('บันทึกตัวเลือกแล้ว — Exam Engine ยังอยู่ระหว่างพัฒนา');}});
+  let activeAttempt=null;
+  let attemptAnswers={};
+  let currentQuestionIndex=0;
+  let submitting=false;
+  function renderAttempt(){
+    if(!activeAttempt)return;
+    const q=activeAttempt.questions[currentQuestionIndex];
+    const selected=attemptAnswers[String(q.id)];
+    root.innerHTML=`<div class="exam-toolbar"><button class="btn soft small" id="exit-attempt">กลับหน้าฝึก</button><span class="badge">กำลังทำข้อสอบ</span><span class="exam-progress">ข้อ ${currentQuestionIndex+1} / ${activeAttempt.questions.length}</span></div>
+      <div class="exam-progress-track"><span style="width:${((currentQuestionIndex+1)/activeAttempt.questions.length)*100}%"></span></div>
+      <section class="panel exam-panel"><div class="exam-question-meta"><span>${q.subject?esc(q.subject):'ข้อสอบ ก.พ.'}</span><span>ข้อที่ ${currentQuestionIndex+1}</span></div>
+      ${q.passage?`<div class="exam-passage">${esc(q.passage)}</div>`:''}
+      <h2 class="exam-question">${esc(q.questionText)}</h2>
+      <div class="exam-choices">${q.choices.map((choice,i)=>`<label class="exam-choice ${selected===i?'selected':''}"><input type="radio" name="exam-answer" value="${i}" ${selected===i?'checked':''}><span class="choice-key">${String.fromCharCode(65+i)}</span><span>${esc(choice)}</span></label>`).join('')}</div>
+      <div class="exam-actions"><button class="btn soft" id="prev-question" ${currentQuestionIndex===0?'disabled':''}>ข้อก่อนหน้า</button><span class="hint">ตอบแล้ว ${Object.keys(attemptAnswers).length} / ${activeAttempt.questions.length} ข้อ</span>${currentQuestionIndex<activeAttempt.questions.length-1?'<button class="btn" id="next-question">ข้อต่อไป</button>':'<button class="btn" id="review-submit">ตรวจทานและส่งข้อสอบ</button>'}</div></section>
+      <div class="exam-number-grid">${activeAttempt.questions.map((item,i)=>`<button class="question-number ${i===currentQuestionIndex?'current':''} ${attemptAnswers[String(item.id)]!==undefined?'answered':''}" data-question-index="${i}" aria-label="ไปข้อที่ ${i+1}">${i+1}</button>`).join('')}</div>
+      <p class="hint">คำตอบจะเก็บไว้ชั่วคราวในหน้านี้ และจะส่งไปตรวจคะแนนเมื่อกดส่งข้อสอบ</p>`;
+  }
+  async function beginAttempt(){
+    const year=document.getElementById('exam-year')?.value;
+    const count=Number(document.getElementById('question-count')?.value||10);
+    if(!year){notify('กรุณาเลือกปีข้อสอบ');return;}
+    const button=document.getElementById('start-practice');
+    if(button){button.disabled=true;button.textContent='กำลังเตรียมข้อสอบ…';}
+    try{
+      activeAttempt=await window.KP_EXAM_ENGINE.startAttempt({examYearId:year,questionCount:count,mode:'practice'});
+      attemptAnswers={};currentQuestionIndex=0;renderAttempt();
+    }catch(error){
+      notify(error.message||'ไม่สามารถเริ่มข้อสอบได้');
+      if(button){button.disabled=false;button.textContent='เริ่มทำข้อสอบแยกปี';}
+    }
+  }
+  async function submitAttempt(){
+    if(!activeAttempt||submitting)return;
+    const unanswered=activeAttempt.questions.length-Object.keys(attemptAnswers).length;
+    if(unanswered>0&&!window.confirm('ยังไม่ได้ตอบ '+unanswered+' ข้อ ต้องการส่งข้อสอบหรือไม่?'))return;
+    submitting=true;
+    const button=document.getElementById('review-submit');
+    if(button){button.disabled=true;button.textContent='กำลังส่งข้อสอบ…';}
+    try{
+      const result=await window.KP_EXAM_ENGINE.submitAttempt(activeAttempt.id,
+        activeAttempt.questions.filter(q=>attemptAnswers[String(q.id)]!==undefined)
+          .map(q=>({questionId:q.id,selectedIndex:attemptAnswers[String(q.id)]})));
+      const data=result.result||result;
+      const score=Number(data.score??data.correct_count);
+      const total=Number(data.total??activeAttempt.questions.length);
+      const percentage=Number(data.percentage??(total?score/total*100:0));
+      root.innerHTML=`<div class="page-intro"><div><h2>ผลการสอบ</h2><p>ส่งข้อสอบเรียบร้อย ระบบตรวจคะแนนจาก Server แล้ว</p></div></div>
+        <section class="panel result-summary"><div class="result-score">${Number.isFinite(score)?score:'—'} <small>/ ${Number.isFinite(total)?total:activeAttempt.questions.length}</small></div>
+        <h3>คะแนนที่ได้</h3><div class="result-percent">${Number.isFinite(percentage)?percentage.toFixed(1):'—'}%</div>
+        <p class="muted">Attempt ID: ${esc(activeAttempt.id)}</p><button class="btn" id="return-practice">กลับไปเลือกชุดข้อสอบ</button></section>`;
+      activeAttempt=null;attemptAnswers={};notify('บันทึกผลการสอบแล้ว');
+    }catch(error){
+      notify(error.message||'ส่งข้อสอบไม่สำเร็จ กรุณาลองอีกครั้ง');
+      if(button){button.disabled=false;button.textContent='ตรวจทานและส่งข้อสอบ';}
+    }finally{submitting=false;}
+  }
+  root.addEventListener('change',e=>{
+    if(e.target.matches('input[name="exam-answer"]')&&activeAttempt){
+      const q=activeAttempt.questions[currentQuestionIndex];
+      attemptAnswers[String(q.id)]=Number(e.target.value);
+      renderAttempt();
+    }
+  });
+  root.addEventListener('click',e=>{
+    const go=e.target.closest('[data-go]');
+    if(go){show(go.dataset.go);return;}
+    if(e.target.id==='start-practice'){beginAttempt();return;}
+    if(e.target.id==='prev-question'&&currentQuestionIndex>0){currentQuestionIndex--;renderAttempt();return;}
+    if(e.target.id==='next-question'&&currentQuestionIndex<activeAttempt.questions.length-1){currentQuestionIndex++;renderAttempt();return;}
+    if(e.target.id==='review-submit'){submitAttempt();return;}
+    if(e.target.id==='exit-attempt'){if(window.confirm('ออกจากข้อสอบหรือไม่? คำตอบที่ยังไม่ส่งจะไม่ถูกบันทึก')){activeAttempt=null;attemptAnswers={};show('by-year');}return;}
+    if(e.target.id==='return-practice'){show('by-year');return;}
+    const jump=e.target.closest('[data-question-index]');
+    if(jump&&activeAttempt){currentQuestionIndex=Number(jump.dataset.questionIndex);renderAttempt();}
+  });
   document.getElementById('menu-toggle').addEventListener('click',()=>{sidebar.classList.toggle('open');scrim.classList.toggle('show');});
   scrim.addEventListener('click',closeMenu);
   document.getElementById('help-button').addEventListener('click',()=>notify('ศูนย์ช่วยเหลือ KP e-Exam อยู่ระหว่างจัดทำ'));
