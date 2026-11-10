@@ -1,6 +1,8 @@
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
-  "cache-control": "no-store"
+  "cache-control": "no-store",
+  "access-control-allow-origin": "*",
+  "vary": "Origin"
 };
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -18,7 +20,7 @@ export default {
       return new Response(null, {
         status: 204,
         headers: {
-          "access-control-allow-origin": env.FRONTEND_ORIGIN || "*",
+          "access-control-allow-origin": "*",
           "access-control-allow-methods": "GET, POST, OPTIONS",
           "access-control-allow-headers": "content-type, authorization",
           "access-control-max-age": "600",
