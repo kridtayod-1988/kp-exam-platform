@@ -1,30 +1,46 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#10233f"><meta name="description" content="KP e-Exam Platform — แพลตฟอร์มฝึกสอบภาค ก.">
-  <title>KP e-Exam Platform</title><link rel="stylesheet" href="assets/styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#132b4b">
+  <meta name="description" content="KP e-Exam Platform แพลตฟอร์มเตรียมสอบ ก.พ. ฝึกข้อสอบและติดตามผล">
+  <title>KP e-Exam Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 <div class="app-shell">
+  <div class="scrim" id="scrim"></div>
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="#dashboard"><span class="brand-mark">KP</span><span><b>KP e-Exam</b><small>EXAM PLATFORM</small></span></a>
+    <a class="brand" href="#dashboard"><span class="brand-mark">KP</span><span><b>KP e-Exam</b><small>EXAM PREPARATION</small></span></a>
     <div class="nav-label">เมนูหลัก</div>
     <nav id="main-nav" aria-label="เมนูหลัก">
-      <button class="nav-item active" data-view="dashboard"><span>▦</span> Dashboard</button>
-      <button class="nav-item" data-view="by-year"><span>▣</span> ฝึกข้อสอบแยกปี</button>
-      <button class="nav-item" data-view="mock"><span>◷</span> Mock Exam</button>
-      <button class="nav-item" data-view="bank"><span>▤</span> คลังข้อสอบ</button>
-      <button class="nav-item" data-view="results"><span>▥</span> ผลการสอบ</button>
-      <button class="nav-item" data-view="member"><span>♙</span> สมาชิก</button>
+      <button class="nav-item active" data-view="dashboard"><span>▦</span>ภาพรวม</button>
+      <button class="nav-item" data-view="by-year"><span>▣</span>ฝึกข้อสอบแยกปี</button>
+      <button class="nav-item" data-view="mock"><span>◷</span>Mock Exam</button>
+      <button class="nav-item" data-view="bank"><span>▤</span>คลังข้อสอบ</button>
+      <button class="nav-item" data-view="results"><span>▥</span>ผลการสอบ</button>
+      <button class="nav-item" data-view="member"><span>♙</span>สมาชิก</button>
     </nav>
-    <div class="sidebar-foot"><span class="status-dot"></span> Prototype mode <small>ยังไม่เชื่อมระบบสมาชิกและฐานข้อมูล</small></div>
+    <div class="sidebar-bottom">
+      <div class="help-card"><span class="help-icon">?</span><div><b>ศูนย์ช่วยเหลือ</b><small>คำแนะนำการใช้งาน</small></div></div>
+      <div class="environment"><i></i><span id="environment-label">โหมดแสดงตัวอย่าง</span></div>
+    </div>
   </aside>
-  <main class="main-content">
-    <header class="topbar"><button class="menu-toggle" id="menu-toggle" aria-label="เปิดเมนู">☰</button><div><div class="eyebrow">KP EXAMINATION</div><h1 id="page-title">Dashboard</h1></div><div class="user-chip"><span class="avatar">G</span><span><b>Guest</b><small>Free plan</small></span></div></header>
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-heading"><button id="menu-toggle" class="menu-toggle" aria-label="เปิดเมนู">☰</button><div><div class="eyebrow">KP EXAMINATION PLATFORM</div><h1 id="page-title">ภาพรวม</h1></div></div>
+      <div class="topbar-user"><button class="icon-button" id="help-button" aria-label="ความช่วยเหลือ">?</button><div class="user-profile"><span class="avatar">G</span><span><b id="user-name">ผู้เยี่ยมชม</b><small id="user-plan">Guest · ยังไม่ได้เข้าสู่ระบบ</small></span></div></div>
+    </header>
     <section id="view-container" class="view-container" aria-live="polite"></section>
-    <footer>© <span id="year-now"></span> KP e-Exam Platform <span>• Prototype สำหรับพัฒนาต่อ</span></footer>
+    <footer><span>© <span id="year-now"></span> KP e-Exam Platform</span><span>เตรียมสอบอย่างเป็นระบบ ก้าวไปอย่างมั่นใจ</span></footer>
   </main>
 </div>
-<script src="js/config.js"></script><script src="js/app.js"></script>
-</body></html>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
