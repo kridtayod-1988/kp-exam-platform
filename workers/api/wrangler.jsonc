@@ -1,5 +1,5 @@
 {
-  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kp-exam-api",
   "main": "./src/index.js",
   "compatibility_date": "2026-11-10",
@@ -13,8 +13,7 @@
     {
       "binding": "DB",
       "database_name": "kp_exam_platform_db",
-      "database_id": "7e6e7817-48f7-4c14-ae45-cf7af6374aba",
-      "migrations_dir": "../../migrations"
+      "database_id": "7e6e7817-48f7-4c14-ae45-cf7af6374aba"
     }
   ],
   "previews": {
@@ -25,8 +24,7 @@
       {
         "binding": "DB",
         "database_name": "kp_exam_platform_staging",
-        "database_id": "1c5fd65b-88d5-45da-90c0-543421f90576",
-        "migrations_dir": "../../migrations"
+        "database_id": "1c5fd65b-88d5-45da-90c0-543421f90576"
       }
     ]
   }
