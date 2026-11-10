@@ -1,0 +1,13 @@
+# Keep the static Worker deployment limited to browser assets.
+.git/
+.github/
+node_modules/
+workers/
+docs/
+migrations/
+wrangler.jsonc
+wrangler.*.jsonc
+package.json
+package-lock.json
+README.md
+schema.sql
