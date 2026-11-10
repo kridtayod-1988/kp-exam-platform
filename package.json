@@ -1,0 +1,11 @@
+{
+  "name": "kp-exam-platform",
+  "private": true,
+  "scripts": {
+    "deploy:frontend": "wrangler deploy",
+    "preview:frontend": "wrangler preview"
+  },
+  "devDependencies": {
+    "wrangler": "^4.160.0"
+  }
+}
