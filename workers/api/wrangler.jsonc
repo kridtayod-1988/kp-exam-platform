@@ -18,7 +18,9 @@
   ],
   "previews": {
     "vars": {
-      "APP_ENV": "preview"
+      "APP_ENV": "preview",
+      "CORS_ALLOWED_ORIGINS": "https://feat-frontend-only-production-kp-exam-platform.workers.dev",
+      "QUESTION_PREVIEW_ENABLED": "false"
     },
     "d1_databases": [
       {
