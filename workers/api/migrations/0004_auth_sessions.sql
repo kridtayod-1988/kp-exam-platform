@@ -2,6 +2,8 @@
 -- Apply ONLY to kp_exam_platform_staging after explicit approval.
 -- Google OAuth secrets are Worker secrets; never store credentials in D1.
 
+-- Keep the canonical KP-EXAM v4 profile fields and add Google identity
+-- columns required by the Auth module. IDs are UUID strings generated server-side.
 CREATE TABLE IF NOT EXISTS profiles (
   id TEXT PRIMARY KEY,
   google_sub TEXT NOT NULL UNIQUE,
@@ -9,6 +11,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   display_name TEXT,
   picture_url TEXT,
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
+  level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+  exam_number TEXT,
+  verification_status TEXT NOT NULL DEFAULT 'unverified'
+    CHECK (verification_status IN ('unverified', 'pending', 'verified', 'rejected')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at TEXT
