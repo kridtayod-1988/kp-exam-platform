@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index.js";
 
+const FRONTEND_PREVIEW = "https://feat-frontend-only-production-kp-exam-platform.workers.dev";
+
 function makeDb() {
   const calls = [];
   return {
@@ -50,12 +52,20 @@ function makeDb() {
   };
 }
 
-function request(path, { method = "GET", origin } = {}) {
-  return new Request("https://api.example.test" + path, {
+function request(path, { method = "GET", origin, headers = {} } = {}) {
+  return new Request("https://api-preview.example.test" + path, {
     method,
-    headers: origin ? { Origin: origin } : {}
+    headers: { ...(origin ? { Origin: origin } : {}), ...headers }
   });
 }
+
+const previewEnv = {
+  DB: makeDb(),
+  APP_ENV: "preview",
+  CORS_ALLOWED_ORIGINS: FRONTEND_PREVIEW,
+  QUESTION_PREVIEW_ENABLED: "true",
+  QUESTION_PREVIEW_TOKEN: "test-preview-token"
+};
 
 test("health checks the bound database", async () => {
   const response = await worker.fetch(request("/api/health"), { DB: makeDb(), APP_ENV: "preview" });
@@ -79,8 +89,18 @@ test("catalog endpoint returns active subject groups and categories", async () =
   assert.equal(payload.data.subcategories.length, 1);
 });
 
-test("question endpoint returns public fields only", async () => {
-  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=10"), { DB: makeDb(), APP_ENV: "preview", QUESTION_PREVIEW_ENABLED: "true" });
+test("question preview requires a server-side preview token", async () => {
+  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=10"), {
+    ...previewEnv,
+    QUESTION_PREVIEW_TOKEN: undefined
+  });
+  assert.equal(response.status, 403);
+});
+
+test("authorized question preview returns public fields only", async () => {
+  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=10", {
+    headers: { Authorization: "Bearer test-preview-token" }
+  }), previewEnv);
   const payload = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(payload.data.questions[0].choices, ["ก", "ข", "ค", "ง"]);
@@ -89,13 +109,17 @@ test("question endpoint returns public fields only", async () => {
 });
 
 test("rejects invalid pagination", async () => {
-  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=500"), { DB: makeDb(), APP_ENV: "preview", QUESTION_PREVIEW_ENABLED: "true" });
+  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=500", {
+    headers: { Authorization: "Bearer test-preview-token" }
+  }), previewEnv);
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error, "INVALID_PAGINATION");
 });
 
 test("returns 404 for inactive or unknown exam year", async () => {
-  const response = await worker.fetch(request("/api/exam-years/2568/questions"), { DB: makeDb(), APP_ENV: "preview", QUESTION_PREVIEW_ENABLED: "true" });
+  const response = await worker.fetch(request("/api/exam-years/2568/questions", {
+    headers: { Authorization: "Bearer test-preview-token" }
+  }), previewEnv);
   assert.equal(response.status, 404);
 });
 
@@ -107,12 +131,35 @@ test("does not expose write endpoints in Phase 1", async () => {
 test("rejects origins not in the explicit allowlist", async () => {
   const response = await worker.fetch(request("/api/exam-years", { origin: "https://evil.example" }), {
     DB: makeDb(),
-    CORS_ALLOWED_ORIGINS: "https://kp-exam-platform.workers.dev"
+    CORS_ALLOWED_ORIGINS: FRONTEND_PREVIEW
   });
   assert.equal(response.status, 403);
 });
 
-test("does not expose question content unless staging preview is explicitly enabled", async () => {
+test("allows credentialed preflight only for the configured frontend preview", async () => {
+  const response = await worker.fetch(request("/api/exam-years", {
+    method: "OPTIONS",
+    origin: FRONTEND_PREVIEW,
+    headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "content-type,authorization"
+    }
+  }), previewEnv);
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("access-control-allow-origin"), FRONTEND_PREVIEW);
+  assert.equal(response.headers.get("access-control-allow-credentials"), "true");
+  assert.match(response.headers.get("access-control-allow-headers"), /authorization/i);
+});
+
+test("rejects preflight from an untrusted frontend origin", async () => {
+  const response = await worker.fetch(request("/api/exam-years", {
+    method: "OPTIONS",
+    origin: "https://evil.example"
+  }), previewEnv);
+  assert.equal(response.status, 403);
+});
+
+test("does not expose question content unless preview is explicitly enabled", async () => {
   const response = await worker.fetch(request("/api/exam-years/2567/questions"), {
     DB: makeDb(),
     APP_ENV: "production"
