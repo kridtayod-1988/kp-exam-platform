@@ -149,7 +149,7 @@ async function googleCallback(request, env) {
   const claims = await verifyGoogleIdToken(tokenPayload.id_token, env, saved.nonce);
   const email = String(claims.email).toLowerCase();
   const role = adminEmails(env).includes(email) ? "admin" : "user";
-  const profileId = await randomToken(24);
+  const profileId = crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO profiles (id, google_sub, email, display_name, picture_url, role, last_login_at)
      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
