@@ -207,6 +207,9 @@ export default {
 
       const match = url.pathname.match(/^\/api\/exam-years\/(\d+)\/questions$/);
       if (match) {
+        if (env.APP_ENV !== "preview" || env.QUESTION_PREVIEW_ENABLED !== "true") {
+          return error("QUESTION_PREVIEW_DISABLED", "การอ่านเนื้อหาข้อสอบยังไม่เปิดจนกว่า Auth และสิทธิ์สมาชิกจะพร้อม", 403, headers);
+        }
         const yearId = Number(match[1]);
         const page = Number(url.searchParams.get("page") || 1);
         const limit = Number(url.searchParams.get("limit") || 25);
