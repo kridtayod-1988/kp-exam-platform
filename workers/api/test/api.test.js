@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index.js";
 
-const FRONTEND_PREVIEW = "https://feat-frontend-only-production-kp-exam-platform.workers.dev";
+const FRONTEND_PREVIEW = "https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev";
 
 function makeDb() {
   const calls = [];
