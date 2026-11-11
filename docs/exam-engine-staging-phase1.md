@@ -57,7 +57,7 @@ npm run test:integration
 
 Node tests use a mocked D1 binding and cover health, catalogue, safe question projection, preview-token enforcement, pagination, unknown years, disabled write routes, CORS allowlisting, and credentialed preflight. GitHub Actions also runs a Wrangler dry run without deploying.
 
-The live Preview integration test calls the actual API Preview URL and checks D1 health, the year catalogue, and Frontend Preview CORS. GitHub Actions Run #28 (before migration 0003 was added) passed unit tests, Wrangler dry run, and live Preview integration, including the actual Staging D1 binding and credentialed CORS preflight. CI for the follow-up migration commit has not yet been confirmed.
+The live Preview integration test calls the actual API Preview URL and checks D1 health, the year catalogue, and Frontend Preview CORS. GitHub Actions Run #30 (run ID `42984492101`, after migration 0003 was added) passed unit tests, Wrangler dry run, and live Preview integration, including the actual Staging D1 binding and credentialed CORS preflight.
 
 ## Staging migration verification
 
