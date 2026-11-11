@@ -14,18 +14,21 @@ function error(code, message, status, headers) {
   return json({ error: code, message }, status, headers);
 }
 
-function corsHeaders(request, env) {
-  const origin = request.headers.get("Origin");
-  if (!origin) return {};
-  const allowed = String(env.CORS_ALLOWED_ORIGINS || "")
+function getAllowedOrigins(env) {
+  return String(env.CORS_ALLOWED_ORIGINS || "")
     .split(",")
     .map(value => value.trim())
     .filter(Boolean);
-  if (!allowed.includes(origin)) return {};
+}
+
+function corsHeaders(request, env) {
+  const origin = request.headers.get("Origin");
+  if (!origin || !getAllowedOrigins(env).includes(origin)) return {};
   return {
     "access-control-allow-origin": origin,
+    "access-control-allow-credentials": "true",
     "access-control-allow-methods": "GET, OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type, authorization, x-csrf-token",
     "access-control-max-age": "600",
     "vary": "Origin"
   };
@@ -44,6 +47,19 @@ function parseChoices(value) {
 
 function isPositiveInteger(value) {
   return Number.isSafeInteger(value) && value > 0;
+}
+
+function hasPreviewAccess(request, env) {
+  const expected = String(env.QUESTION_PREVIEW_TOKEN || "");
+  const authorization = request.headers.get("Authorization") || "";
+  if (!expected || !authorization.startsWith("Bearer ")) return false;
+  const supplied = authorization.slice(7);
+  if (supplied.length !== expected.length) return false;
+  let difference = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    difference |= expected.charCodeAt(index) ^ supplied.charCodeAt(index);
+  }
+  return difference === 0;
 }
 
 async function getExamYears(env) {
@@ -75,10 +91,12 @@ async function getCatalog(env) {
         ORDER BY sort_order, name`
     ).all(),
     env.DB.prepare(
-      `SELECT id, subject_group_id, name, slug, is_gpa3
-         FROM subcategories
-        WHERE is_active = 1
-        ORDER BY sort_order, name`
+      `SELECT sc.id, sc.subject_group_id, sc.name, sc.slug, sc.is_gpa3
+         FROM subcategories sc
+         INNER JOIN subject_groups sg
+           ON sg.id = sc.subject_group_id AND sg.is_active = 1
+        WHERE sc.is_active = 1
+        ORDER BY sc.sort_order, sc.name`
     ).all()
   ]);
 
@@ -109,8 +127,12 @@ async function getYearQuestions(env, yearId, page, limit) {
   const offset = (page - 1) * limit;
   const countRow = await env.DB.prepare(
     `SELECT COUNT(*) AS total
-       FROM questions
-      WHERE exam_year_id = ? AND is_active = 1`
+       FROM questions q
+       INNER JOIN subcategories sc
+         ON sc.id = q.subcategory_id AND sc.is_active = 1
+       INNER JOIN subject_groups sg
+         ON sg.id = sc.subject_group_id AND sg.is_active = 1
+      WHERE q.exam_year_id = ? AND q.is_active = 1`
   ).bind(yearId).first();
 
   const result = await env.DB.prepare(
@@ -118,7 +140,10 @@ async function getYearQuestions(env, yearId, page, limit) {
             q.difficulty, q.subcategory_id,
             sc.name AS subject_name
        FROM questions q
-       LEFT JOIN subcategories sc ON sc.id = q.subcategory_id
+       INNER JOIN subcategories sc
+         ON sc.id = q.subcategory_id AND sc.is_active = 1
+       INNER JOIN subject_groups sg
+         ON sg.id = sc.subject_group_id AND sg.is_active = 1
       WHERE q.exam_year_id = ? AND q.is_active = 1
       ORDER BY q.id
       LIMIT ? OFFSET ?`
@@ -207,8 +232,8 @@ export default {
 
       const match = url.pathname.match(/^\/api\/exam-years\/(\d+)\/questions$/);
       if (match) {
-        if (env.APP_ENV !== "preview" || env.QUESTION_PREVIEW_ENABLED !== "true") {
-          return error("QUESTION_PREVIEW_DISABLED", "การอ่านเนื้อหาข้อสอบยังไม่เปิดจนกว่า Auth และสิทธิ์สมาชิกจะพร้อม", 403, headers);
+        if (env.APP_ENV !== "preview" || env.QUESTION_PREVIEW_ENABLED !== "true" || !hasPreviewAccess(request, env)) {
+          return error("QUESTION_PREVIEW_DISABLED", "เนื้อหาข้อสอบ Preview ต้องใช้สิทธิ์เข้าถึงที่กำหนดไว้", 403, headers);
         }
         const yearId = Number(match[1]);
         const page = Number(url.searchParams.get("page") || 1);
