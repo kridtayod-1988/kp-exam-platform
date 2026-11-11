@@ -9,8 +9,11 @@ const json = (body, status = 200, headers = {}) => {
     "cache-control": "no-store"
   });
   if (headers instanceof Headers) {
-    for (const [key, value] of headers.entries()) responseHeaders.set(key, value);
-    for (const value of headers.getSetCookie?.() || []) responseHeaders.append("set-cookie", value);
+    for (const [key, value] of headers.entries()) {
+      if (key.toLowerCase() !== "set-cookie") responseHeaders.set(key, value);
+    }
+    const cookies = headers.getSetCookie?.() || (headers.has("set-cookie") ? [headers.get("set-cookie")] : []);
+    for (const value of cookies) responseHeaders.append("set-cookie", value);
   } else {
     for (const [key, value] of Object.entries(headers || {})) responseHeaders.set(key, value);
   }
