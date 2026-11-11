@@ -3,8 +3,6 @@
 -- This migration adds the year-linked question model required by the exam UX.
 -- It intentionally does not import questions or enable attempt write APIs.
 
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS exam_years (
   id INTEGER PRIMARY KEY,
   year_be INTEGER NOT NULL UNIQUE,
@@ -42,7 +40,7 @@ CREATE TABLE IF NOT EXISTS questions (
   question_text TEXT NOT NULL,
   passage TEXT,
   choices TEXT NOT NULL CHECK (json_valid(choices) AND json_type(choices) = 'array'),
-  correct_index INTEGER NOT NULL CHECK (correct_index >= 0),
+  correct_index INTEGER NOT NULL CHECK (correct_index >= 0 AND correct_index < json_array_length(choices)),
   explanation TEXT,
   difficulty TEXT CHECK (difficulty IS NULL OR difficulty IN ('easy', 'medium', 'hard')),
   source_round TEXT NOT NULL DEFAULT 'manual',
@@ -89,3 +87,11 @@ CREATE TABLE IF NOT EXISTS user_answers (
   FOREIGN KEY (attempt_id) REFERENCES user_attempts(id) ON DELETE CASCADE,
   FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT
 );
+
+CREATE TABLE IF NOT EXISTS kp_schema_migrations (
+  id TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT OR IGNORE INTO kp_schema_migrations (id)
+VALUES ('0001_exam_engine');
