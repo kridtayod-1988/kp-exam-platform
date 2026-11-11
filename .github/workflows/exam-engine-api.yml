@@ -25,3 +25,11 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm test
+      - name: Validate Wrangler configuration without deploying
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
+      - name: Run Preview integration checks when URLs are configured
+        if: ${{ vars.API_PREVIEW_URL != '' && vars.FRONTEND_PREVIEW_ORIGIN != '' }}
+        env:
+          API_PREVIEW_URL: ${{ vars.API_PREVIEW_URL }}
+          FRONTEND_PREVIEW_ORIGIN: ${{ vars.FRONTEND_PREVIEW_ORIGIN }}
+        run: npm run test:integration
