@@ -128,11 +128,12 @@ async function getYearQuestions(env, yearId, page, limit) {
   const countRow = await env.DB.prepare(
     `SELECT COUNT(*) AS total
        FROM questions q
-       INNER JOIN subcategories sc
+       LEFT JOIN subcategories sc
          ON sc.id = q.subcategory_id AND sc.is_active = 1
-       INNER JOIN subject_groups sg
+       LEFT JOIN subject_groups sg
          ON sg.id = sc.subject_group_id AND sg.is_active = 1
-      WHERE q.exam_year_id = ? AND q.is_active = 1`
+      WHERE q.exam_year_id = ? AND q.is_active = 1
+        AND (q.subcategory_id IS NULL OR sg.id IS NOT NULL)`
   ).bind(yearId).first();
 
   const result = await env.DB.prepare(
@@ -140,11 +141,12 @@ async function getYearQuestions(env, yearId, page, limit) {
             q.difficulty, q.subcategory_id,
             sc.name AS subject_name
        FROM questions q
-       INNER JOIN subcategories sc
+       LEFT JOIN subcategories sc
          ON sc.id = q.subcategory_id AND sc.is_active = 1
-       INNER JOIN subject_groups sg
+       LEFT JOIN subject_groups sg
          ON sg.id = sc.subject_group_id AND sg.is_active = 1
       WHERE q.exam_year_id = ? AND q.is_active = 1
+        AND (q.subcategory_id IS NULL OR sg.id IS NOT NULL)
       ORDER BY q.id
       LIMIT ? OFFSET ?`
   ).bind(yearId, limit, offset).all();
