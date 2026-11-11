@@ -1,3 +1,5 @@
+import { handleAuth } from "./auth.js";
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store"
@@ -27,7 +29,7 @@ function corsHeaders(request, env) {
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-credentials": "true",
-    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-allow-headers": "content-type, authorization, x-csrf-token",
     "access-control-max-age": "600",
     "vary": "Origin"
@@ -212,10 +214,20 @@ export default {
       }
     }
 
+    if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/auth/")) {
+      if (!env.DB) return error("DATABASE_UNAVAILABLE", "D1 binding DB is unavailable", 503, headers);
+      const authResponse = await handleAuth(request, env, url);
+      if (authResponse) {
+        const responseHeaders = new Headers(authResponse.headers);
+        for (const [key, value] of Object.entries(headers)) responseHeaders.set(key, value);
+        return new Response(authResponse.body, { status: authResponse.status, headers: responseHeaders });
+      }
+    }
+
     if (request.method !== "GET") {
       return error("METHOD_NOT_ALLOWED", "รองรับเฉพาะ GET ใน Staging Phase 1", 405, {
         ...headers,
-        allow: "GET, OPTIONS"
+        allow: "GET, POST, OPTIONS"
       });
     }
 
