@@ -36,7 +36,7 @@ The API directory has its own package manifest so Wrangler is installed in that 
 
 ## Preview security configuration
 
-- The Preview API allowlists only the current Frontend Preview origin: `https://feat-frontend-only-production-kp-exam-platform.workers.dev`.
+- The Preview API allowlists only the current Frontend Preview origin: `https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev`.
 - Credentialed CORS is enabled only for that exact allowlisted origin. Wildcard origins are not used.
 - Question content preview remains disabled by default (`QUESTION_PREVIEW_ENABLED=false`).
 - For isolated review only, configure the Worker Preview secret `QUESTION_PREVIEW_TOKEN` and set `QUESTION_PREVIEW_ENABLED=true`. Send the token in an `Authorization: Bearer` header. Never put the token in frontend code, a checked-in file, or Production configuration.
