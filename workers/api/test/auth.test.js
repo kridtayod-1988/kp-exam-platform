@@ -75,7 +75,7 @@ test("logout rejects an untrusted Origin before touching session state", async (
 async function hashToken(value) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 test("OAuth callback rejects a state that is not bound to the browser cookie", async () => {
