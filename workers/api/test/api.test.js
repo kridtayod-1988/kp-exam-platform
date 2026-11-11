@@ -80,7 +80,7 @@ test("catalog endpoint returns active subject groups and categories", async () =
 });
 
 test("question endpoint returns public fields only", async () => {
-  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=10"), { DB: makeDb() });
+  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=10"), { DB: makeDb(), APP_ENV: "preview", QUESTION_PREVIEW_ENABLED: "true" });
   const payload = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(payload.data.questions[0].choices, ["ก", "ข", "ค", "ง"]);
@@ -89,13 +89,13 @@ test("question endpoint returns public fields only", async () => {
 });
 
 test("rejects invalid pagination", async () => {
-  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=500"), { DB: makeDb() });
+  const response = await worker.fetch(request("/api/exam-years/2567/questions?limit=500"), { DB: makeDb(), APP_ENV: "preview", QUESTION_PREVIEW_ENABLED: "true" });
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error, "INVALID_PAGINATION");
 });
 
 test("returns 404 for inactive or unknown exam year", async () => {
-  const response = await worker.fetch(request("/api/exam-years/2568/questions"), { DB: makeDb() });
+  const response = await worker.fetch(request("/api/exam-years/2568/questions"), { DB: makeDb(), APP_ENV: "preview", QUESTION_PREVIEW_ENABLED: "true" });
   assert.equal(response.status, 404);
 });
 
@@ -110,4 +110,13 @@ test("rejects origins not in the explicit allowlist", async () => {
     CORS_ALLOWED_ORIGINS: "https://kp-exam-platform.workers.dev"
   });
   assert.equal(response.status, 403);
+});
+
+test("does not expose question content unless staging preview is explicitly enabled", async () => {
+  const response = await worker.fetch(request("/api/exam-years/2567/questions"), {
+    DB: makeDb(),
+    APP_ENV: "production"
+  });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "QUESTION_PREVIEW_DISABLED");
 });
