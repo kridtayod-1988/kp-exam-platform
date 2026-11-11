@@ -160,6 +160,7 @@ async function googleCallback(request, env) {
   ).bind(profile.id).run();
 
   const headers = new Headers({ location: env.AUTH_SUCCESS_REDIRECT || "/" });
+  headers.append("set-cookie", `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
   for (const value of cookieHeaders(session, csrf)) headers.append("set-cookie", value);
   return new Response(null, { status: 302, headers });
 }
