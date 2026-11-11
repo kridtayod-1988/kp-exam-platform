@@ -1,4 +1,4 @@
-const SESSION_COOKIE = "__Host-kp_session";
+const SESSION_COOKIE = "__Host-kp_session";\nconst OAUTH_STATE_COOKIE = "__Host-kp_oauth_state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_TTL_SECONDS = 10 * 60;
 
@@ -100,14 +100,16 @@ async function startGoogle(request, env) {
     nonce,
     prompt: "select_account"
   }).toString();
-  return Response.redirect(target.toString(), 302);
+  const headers = new Headers({ location: target.toString() });
+  headers.append("set-cookie", `${OAUTH_STATE_COOKIE}=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${OAUTH_TTL_SECONDS}`);
+  return new Response(null, { status: 302, headers });
 }
 
 async function googleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") || "";
   const state = url.searchParams.get("state") || "";
-  if (!code || !state || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
+  if (!code || !state || cookieValue(request, OAUTH_STATE_COOKIE) !== state || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
     return json({ error: "OAUTH_CALLBACK_INVALID" }, 400);
   }
 
