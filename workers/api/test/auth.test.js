@@ -21,7 +21,7 @@ test("Google OAuth start creates one-time state and redirects to Google", async 
   const DB = dbStub();
   const response = await handleAuth(
     new Request("https://api.example.test/auth/google/start"),
-    { DB, GOOGLE_CLIENT_ID: "staging-client-id", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback" },
+    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "staging-client-id", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback" },
     new URL("https://api.example.test/auth/google/start")
   );
   assert.equal(response.status, 302);
@@ -62,7 +62,7 @@ test("logout rejects an untrusted Origin before touching session state", async (
       method: "POST",
       headers: { Origin: "https://attacker.example" }
     }),
-    { DB, CORS_ALLOWED_ORIGINS: "https://frontend.example" },
+    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", CORS_ALLOWED_ORIGINS: "https://frontend.example" },
     new URL("https://api.example.test/api/auth/logout")
   );
   assert.equal(response.status, 403);
