@@ -219,7 +219,10 @@ export default {
         }
 
         const result = await getYearQuestions(env, yearId, page, limit);
-        return json({ data: result.body }, result.status, headers);
+        if (result.status !== 200) {
+          return error(result.body.error, result.body.message, result.status, headers);
+        }
+        return json({ data: result.body }, 200, headers);
       }
 
       return error("NOT_FOUND", "ไม่พบ API endpoint นี้", 404, headers);
