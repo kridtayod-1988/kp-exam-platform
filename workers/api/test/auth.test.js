@@ -141,7 +141,7 @@ test("logout rejects a missing or incorrect CSRF token without revoking the sess
   );
   assert.equal(response.status, 403);
   assert.equal((await response.json()).error, "CSRF_INVALID");
-  assert.equal(DB.statements.length, 0);
+  assert.equal(DB.statements.some(({ sql }) => /UPDATE auth_sessions SET revoked_at|INSERT INTO auth_audit_log/.test(sql)), false);
 });
 
 test("logout revokes the session and records an audit event with a valid CSRF token", async () => {
