@@ -36,7 +36,7 @@ The API directory has its own package manifest so Wrangler is installed in that 
 
 ## Preview security configuration
 
-- The Preview API allowlists only the current Frontend Preview origin: `https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev`.
+- The Preview API allowlists only the current Frontend Preview origin: `https://feat-exam-engine-staging-kp-exam-platform.workers.dev`.
 - Credentialed CORS is enabled only for that exact allowlisted origin. Wildcard origins are not used.
 - Question content preview remains disabled by default (`QUESTION_PREVIEW_ENABLED=false`).
 - For isolated review only, configure the Worker Preview secret `QUESTION_PREVIEW_TOKEN` and set `QUESTION_PREVIEW_ENABLED=true`. Send the token in an `Authorization: Bearer` header. Never put the token in frontend code, a checked-in file, or Production configuration.
@@ -62,8 +62,8 @@ npx wrangler deploy --config wrangler.jsonc --dry-run
 Preview smoke/integration checks can be run after both Preview Workers are available:
 
 ```sh
-API_PREVIEW_URL=https://<api-preview-host> \
-FRONTEND_PREVIEW_ORIGIN=https://feat-frontend-only-production-kp-exam-platform.workers.dev \
+API_PREVIEW_URL=https://feat-exam-engine-staging-kp-exam-api.kridtayod.workers.dev \
+FRONTEND_PREVIEW_ORIGIN=https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev \
 npm run test:integration
 ```
 
