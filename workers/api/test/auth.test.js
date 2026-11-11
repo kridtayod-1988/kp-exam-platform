@@ -38,7 +38,7 @@ test("Google OAuth start creates one-time state and redirects to Google", async 
 test("Google OAuth start fails closed when Staging credentials are not configured", async () => {
   const response = await handleAuth(
     new Request("https://api.example.test/auth/google/start"),
-    { DB: dbStub() },
+    { DB: dbStub(), APP_ENV: "preview", AUTH_ENABLED: "true" },
     new URL("https://api.example.test/auth/google/start")
   );
   assert.equal(response.status, 503);
