@@ -1,4 +1,5 @@
-const SESSION_COOKIE = "__Host-kp_session";\nconst OAUTH_STATE_COOKIE = "__Host-kp_oauth_state";
+const SESSION_COOKIE = "__Host-kp_session";
+const OAUTH_STATE_COOKIE = "__Host-kp_oauth_state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_TTL_SECONDS = 10 * 60;
 
