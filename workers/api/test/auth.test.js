@@ -10,7 +10,7 @@ function dbStub(firstResult = null) {
       return {
         values: [],
         bind(...values) { this.values = values; return this; },
-        async first() { return firstResult; },
+        async first() { statements.push({ sql, values: this.values, operation: "first" }); return firstResult; },
         async run() { statements.push({ sql, values: this.values }); return { success: true }; }
       };
     }
