@@ -1,5 +1,4 @@
 const SESSION_COOKIE = "__Host-kp_session";
-const CSRF_COOKIE = "kp_csrf";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_TTL_SECONDS = 10 * 60;
 
@@ -34,14 +33,12 @@ function cookieValue(request, name) {
 function cookieHeaders(session, csrf, maxAge = SESSION_TTL_SECONDS) {
   return [
     `${SESSION_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`,
-    `${CSRF_COOKIE}=${csrf}; Path=/; Secure; SameSite=Strict; Max-Age=${maxAge}`
   ];
 }
 
 function clearCookieHeaders() {
   return [
     `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
-    `${CSRF_COOKIE}=; Path=/; Secure; SameSite=Strict; Max-Age=0`
   ];
 }
 
@@ -166,7 +163,7 @@ async function googleCallback(request, env) {
 }
 
 export async function handleAuth(request, env, url) {
-  if (url.pathname === "/auth/google/start" && request.method === "GET") {
+  if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/auth/")) {\n    if (env.APP_ENV !== "preview") return json({ error: "AUTH_NOT_ENABLED" }, 404);\n  }\n  if (url.pathname === "/auth/google/start" && request.method === "GET") {
     return startGoogle(request, env);
   }
   if (url.pathname === "/auth/google/callback" && request.method === "GET") {
