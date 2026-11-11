@@ -9,7 +9,8 @@ This branch is based on `feat/cloudflare-two-workers-staging`. Work in this phas
 - Do not run a migration against `kp_exam_platform_db`.
 - Do not run a production deployment.
 - No attempt creation, answer persistence, scoring, or submission endpoint is enabled.
-- No real question dataset was present in the repository at implementation time; this migration creates schema only.
+- No real question dataset was present in the repository at implementation time; the migration creates schema only.
+- The Staging migration `0001_exam_engine` has been applied to D1 database `kp_exam_platform_staging` (ID `1c5fd65b-88d5-45da-90c0-543421f90576`). Production was not modified.
 
 ## Data model
 
@@ -31,7 +32,7 @@ The explicit `questions.exam_year_id` relationship resolves the year-selection r
 | GET | `/api/catalog` | Active subject groups and subcategories |
 | GET | `/api/exam-years/:id/questions?page=1&limit=25` | Safe question fields for an active year |
 
-Question responses intentionally omit `correct_index` and `explanation`. Pagination is validated; page size is capped at 50. Unknown/inactive years return 404.
+Question responses intentionally omit `correct_index` and `explanation`. The question-content endpoint is additionally disabled unless both `APP_ENV=preview` and `QUESTION_PREVIEW_ENABLED=true` are explicitly set. This keeps question content unavailable by default until Auth and membership entitlements are implemented. Pagination is validated; page size is capped at 50. Unknown/inactive years return 404.
 
 All non-GET API methods return 405 in this phase. This prevents the frontend adapter's attempt and submit calls from accidentally being treated as functional before authentication is implemented.
 
@@ -47,11 +48,11 @@ From `workers/api`:
 npm test
 ```
 
-The tests use a mocked D1 binding and cover health, catalogue, safe question projection, pagination validation, unknown years, disabled write routes, and CORS allowlisting.
+The tests use a mocked D1 binding and cover health, catalogue, safe question projection, pagination validation, unknown years, disabled question preview by default, disabled write routes, and CORS allowlisting. A GitHub Actions workflow runs `npm test` for API changes.
 
 ## Staging migration procedure
 
-Review the SQL, then apply only to the Staging D1 database using its database name/ID. Do not use the production binding or run an unqualified migration command from the root. Verify the resulting table list and run the API tests before connecting a preview Worker.
+Migration `0001_exam_engine` was applied directly to the Staging D1 database only. Read-back verification confirmed the new tables (`exam_years`, `subject_groups`, `subcategories`, `questions`, `user_attempts`, `user_answers`, and `kp_schema_migrations`). No exam-year, subject, question, attempt, or answer records were imported. The Production database was queried read-only for a table-list comparison and received no writes.
 
 ## Auth gate before Phase 2
 
