@@ -88,7 +88,7 @@ async function startGoogle(request, env) {
   const state = await randomToken();
   const nonce = await randomToken();
   const stateHash = await sha256(state);
-  const expiresAt = new Date(Date.now() + OAUTH_TTL_SECONDS * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + OAUTH_TTL_SECONDS * 1000).toISOString().slice(0, 19).replace("T", " ");
   await env.DB.prepare(
     "INSERT INTO auth_oauth_states (state_hash, nonce, expires_at) VALUES (?, ?, ?)"
   ).bind(stateHash, nonce, expiresAt).run();
@@ -152,7 +152,7 @@ async function googleCallback(request, env) {
   const profile = await env.DB.prepare("SELECT id, role FROM profiles WHERE google_sub = ?").bind(claims.sub).first();
   const session = await randomToken();
   const csrf = await randomToken();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString().slice(0, 19).replace("T", " ");
   await env.DB.prepare(
     "INSERT INTO auth_sessions (session_token_hash, profile_id, csrf_token_hash, expires_at) VALUES (?, ?, ?, ?)"
   ).bind(await sha256(session), profile.id, await sha256(csrf), expiresAt).run();
