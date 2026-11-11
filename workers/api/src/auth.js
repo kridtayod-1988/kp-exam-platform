@@ -179,13 +179,10 @@ export async function handleAuth(request, env, url) {
   if (url.pathname === "/api/auth/session" && request.method === "GET") {
     const session = await getSession(request, env);
     if (!session) return json({ authenticated: false }, 401);
-    const csrf = cookieValue(request, CSRF_COOKIE);
-    if (!csrf || await sha256(csrf) !== session.csrf_token_hash) {
-      return json({ authenticated: true, profile: {
-        email: session.email, display_name: session.display_name,
-        picture_url: session.picture_url, role: session.role
-      }, csrf_token_required: true }, 200);
-    }
+    const csrf = await randomToken();
+    await env.DB.prepare(
+      "UPDATE auth_sessions SET csrf_token_hash = ?, last_seen_at = CURRENT_TIMESTAMP WHERE session_token_hash = ? AND revoked_at IS NULL"
+    ).bind(await sha256(csrf), session.tokenHash).run();
     return json({ authenticated: true, profile: {
       email: session.email, display_name: session.display_name,
       picture_url: session.picture_url, role: session.role
