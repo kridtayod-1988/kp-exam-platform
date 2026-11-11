@@ -162,7 +162,7 @@ async function googleCallback(request, env) {
 }
 
 export async function handleAuth(request, env, url) {
-  if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/auth/")) {\n    if (env.APP_ENV !== "preview") return json({ error: "AUTH_NOT_ENABLED" }, 404);\n  }\n  if (url.pathname === "/auth/google/start" && request.method === "GET") {
+  if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/auth/")) {\n    if (env.APP_ENV !== "preview") return json({ error: "AUTH_NOT_ENABLED" }, 404);\n    if (env.AUTH_ENABLED !== "true") return json({ error: "AUTH_NOT_CONFIGURED" }, 503);\n  }\n  if (url.pathname === "/auth/google/start" && request.method === "GET") {
     return startGoogle(request, env);
   }
   if (url.pathname === "/auth/google/callback" && request.method === "GET") {
