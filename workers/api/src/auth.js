@@ -3,11 +3,19 @@ const OAUTH_STATE_COOKIE = "__Host-kp_oauth_state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_TTL_SECONDS = 10 * 60;
 
-const json = (body, status = 200, headers = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers }
+const json = (body, status = 200, headers = {}) => {
+  const responseHeaders = new Headers({
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store"
   });
+  if (headers instanceof Headers) {
+    for (const [key, value] of headers.entries()) responseHeaders.set(key, value);
+    for (const value of headers.getSetCookie?.() || []) responseHeaders.append("set-cookie", value);
+  } else {
+    for (const [key, value] of Object.entries(headers || {})) responseHeaders.set(key, value);
+  }
+  return new Response(JSON.stringify(body), { status, headers: responseHeaders });
+};
 
 const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)))
   .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
