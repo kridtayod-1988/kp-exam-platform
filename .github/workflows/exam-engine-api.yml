@@ -1,0 +1,27 @@
+name: Exam Engine API tests
+
+on:
+  push:
+    branches:
+      - feat/exam-engine-staging
+    paths:
+      - "workers/api/**"
+      - ".github/workflows/exam-engine-api.yml"
+  pull_request:
+    paths:
+      - "workers/api/**"
+      - ".github/workflows/exam-engine-api.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
