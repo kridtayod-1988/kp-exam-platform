@@ -49,7 +49,7 @@ test("Google OAuth start fails closed when Staging credentials are not configure
 test("session endpoint does not authenticate without a session cookie", async () => {
   const response = await handleAuth(
     new Request("https://api.example.test/api/auth/session"),
-    { DB: dbStub() },
+    { DB: dbStub(), APP_ENV: "preview", AUTH_ENABLED: "true" },
     new URL("https://api.example.test/api/auth/session")
   );
   assert.equal(response.status, 401);
