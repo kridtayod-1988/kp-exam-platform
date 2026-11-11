@@ -113,10 +113,9 @@ async function googleCallback(request, env) {
 
   const stateHash = await sha256(state);
   const saved = await env.DB.prepare(
-    "SELECT nonce FROM auth_oauth_states WHERE state_hash = ? AND expires_at > CURRENT_TIMESTAMP LIMIT 1"
+    "DELETE FROM auth_oauth_states WHERE state_hash = ? AND expires_at > CURRENT_TIMESTAMP RETURNING nonce"
   ).bind(stateHash).first();
   if (!saved) return json({ error: "OAUTH_STATE_INVALID" }, 400);
-  await env.DB.prepare("DELETE FROM auth_oauth_states WHERE state_hash = ?").bind(stateHash).run();
 
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -194,8 +193,7 @@ export async function handleAuth(request, env, url) {
       return json({ error: "UNAUTHENTICATED" }, 401, headers);
     }
     const csrf = request.headers.get("X-CSRF-Token") || "";
-    if (!csrf || await sha256(csrf) !== session.csrf_token_hash ||
-        await sha256(cookieValue(request, CSRF_COOKIE)) !== session.csrf_token_hash) {
+    if (!csrf || await sha256(csrf) !== session.csrf_token_hash) {
       return json({ error: "CSRF_INVALID" }, 403);
     }
     await env.DB.prepare(
