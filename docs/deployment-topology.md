@@ -32,7 +32,15 @@ The API directory has its own package manifest so Wrangler is installed in that 
 - Production API binding `DB` points to `kp_exam_platform_db`.
 - Worker Preview binding `DB` points to the separate `kp_exam_platform_staging` database.
 - Do not copy the production database ID into the Preview binding.
-- The staging database is newly created and currently empty. Apply reviewed schema migrations to staging before testing database-dependent API features.
+- Schema changes in this PR are additive migrations. Apply them only to the Staging D1 database after reviewing the SQL. Never run them against Production as part of this PR.
+
+## Preview security configuration
+
+- The Preview API allowlists only the current Frontend Preview origin: `https://feat-frontend-only-production-kp-exam-platform.workers.dev`.
+- Credentialed CORS is enabled only for that exact allowlisted origin. Wildcard origins are not used.
+- Question content preview remains disabled by default (`QUESTION_PREVIEW_ENABLED=false`).
+- For isolated review only, configure the Worker Preview secret `QUESTION_PREVIEW_TOKEN` and set `QUESTION_PREVIEW_ENABLED=true`. Send the token in an `Authorization: Bearer` header. Never put the token in frontend code, a checked-in file, or Production configuration.
+- The browser adapter uses `credentials: include`; the API returns `Access-Control-Allow-Credentials: true` for the allowlisted origin. This is CORS compatibility, not an implementation of user authentication.
 
 ## Verification
 
@@ -47,12 +55,23 @@ From `workers/api`:
 
 ```sh
 npm install
+npm test
 npx wrangler deploy --config wrangler.jsonc --dry-run
-npx wrangler preview --config wrangler.jsonc
 ```
 
-A successful local dry run does not deploy to Cloudflare. Do not run `wrangler deploy` against production until the branch has been reviewed and deployment is explicitly approved.
+Preview smoke/integration checks can be run after both Preview Workers are available:
+
+```sh
+API_PREVIEW_URL=https://<api-preview-host> \
+FRONTEND_PREVIEW_ORIGIN=https://feat-frontend-only-production-kp-exam-platform.workers.dev \
+npm run test:integration
+```
+
+The integration test checks the actual Preview API health/D1 binding, year catalogue, and credentialed CORS preflight. It is skipped when the two Preview URLs are not supplied. A local dry run does not deploy to Cloudflare.
 
 ## Current API scaffold
 
-`GET /api/health` checks that the D1 binding exists and can execute `SELECT 1`. Other routes deliberately return HTTP 501 until their server-side implementation and tests are added. This scaffold does not claim that Google Login, sessions, exam attempts, scoring, or Admin APIs are implemented.
+- `GET /api/health`, `GET /api/exam-years`, and `GET /api/catalog` are read-only.
+- Question content is available only in Preview with both the explicit feature flag and a server-side bearer token.
+- All write methods remain disabled in Phase 1. Attempt creation and submission require the authenticated server-side session described in the API contract; user identity must never come from browser input.
+- The legacy `schema.sql` uses an older `exams/exam_results` model and must not be applied to the current D1 database.
