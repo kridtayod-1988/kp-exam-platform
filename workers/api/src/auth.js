@@ -188,7 +188,11 @@ export async function handleAuth(request, env, url) {
   if (url.pathname === "/api/auth/logout" && request.method === "POST") {
     if (!allowedOrigin(request, env)) return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
     const session = await getSession(request, env);
-    if (!session) return json({ error: "UNAUTHENTICATED" }, 401, { "set-cookie": clearCookieHeaders().join(", ") });
+    if (!session) {
+      const headers = new Headers();
+      for (const value of clearCookieHeaders()) headers.append("set-cookie", value);
+      return json({ error: "UNAUTHENTICATED" }, 401, headers);
+    }
     const csrf = request.headers.get("X-CSRF-Token") || "";
     if (!csrf || await sha256(csrf) !== session.csrf_token_hash ||
         await sha256(cookieValue(request, CSRF_COOKIE)) !== session.csrf_token_hash) {
