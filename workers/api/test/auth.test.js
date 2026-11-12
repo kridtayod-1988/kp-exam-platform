@@ -32,8 +32,9 @@ test("Google OAuth start creates one-time state and redirects to Google", async 
   assert.ok(target.searchParams.get("state"));
   assert.ok(target.searchParams.get("nonce"));
   assert.match(response.headers.get("set-cookie"), /__Host-kp_oauth_state=.*HttpOnly.*Secure.*SameSite=Lax/);
-  assert.equal(DB.statements.length, 1);
-  assert.match(DB.statements[0].sql, /INSERT INTO auth_oauth_states/);
+  assert.equal(DB.statements.length, 3);
+  assert.ok(DB.statements.some(({ sql }) => /INSERT INTO auth_oauth_states/.test(sql)));
+  assert.ok(DB.statements.some(({ sql }) => /DELETE FROM auth_oauth_states WHERE expires_at/.test(sql)));
 });
 
 test("Google OAuth start fails closed when Staging credentials are not configured", async () => {
