@@ -198,9 +198,9 @@ async function googleCallback(request, env) {
       grant_type: "authorization_code"
     })
   });
-  if (!tokenResponse.ok) return json({ error: "OAUTH_CODE_EXCHANGE_FAILED" }, 401);
+  if (!tokenResponse.ok) {\n    await recordOAuthFailure(env);\n    return json({ error: "OAUTH_CODE_EXCHANGE_FAILED" }, 401);\n  }
   const tokenPayload = await tokenResponse.json();
-  if (!tokenPayload.id_token) return json({ error: "GOOGLE_ID_TOKEN_MISSING" }, 401);
+  if (!tokenPayload.id_token) {\n    await recordOAuthFailure(env);\n    return json({ error: "GOOGLE_ID_TOKEN_MISSING" }, 401);\n  }
 
   const claims = await verifyGoogleIdToken(tokenPayload.id_token, env, saved.nonce);
   const email = String(claims.email).toLowerCase();
