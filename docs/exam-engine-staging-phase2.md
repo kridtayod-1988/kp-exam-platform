@@ -4,7 +4,7 @@
 
 This phase is developed on `feat/exam-engine-staging` and targets Staging only.
 No Production database, Worker configuration, deployment, or merge is included.
-Migration `0004_auth_sessions.sql` is prepared but is **not applied** until separately approved.
+Migration `0004_auth_sessions.sql` is already recorded as applied in `kp_exam_platform_staging` (D1 read-back: `0004_auth_sessions`, 2026-11-11 15:57:13 UTC). Do not apply it again. No Production database was queried or changed.
 
 ## Authentication model
 
@@ -13,8 +13,8 @@ Migration `0004_auth_sessions.sql` is prepared but is **not applied** until sepa
 - Google client credentials and the session signing/pepper material are Worker secrets, never frontend variables or D1 values.
 - A random opaque session token is stored only as a SHA-256 hash in D1 and sent in a Secure, HttpOnly, SameSite=Lax cookie.
 - Session expiry and revocation are enforced server-side.
-- State/nonce records are short-lived and single-use.
-- The browser receives a separate CSRF token; mutating requests require both the token header and an allowed Origin.
+- State/nonce records are short-lived and single-use. Expired rows are cleaned on OAuth start. OAuth start is limited to five requests per edge IP per rolling minute using an atomic D1 insert/count and a keyed IP digest in the existing audit log.
+- The browser receives a session-bound CSRF token derived with HMAC from the opaque session token and `SESSION_SECRET`. It is returned in a Secure, SameSite=Lax `__Host-kp_csrf` cookie and in the session response. The token is stable for the session, so opening another tab does not invalidate the first tab. Mutating requests require the header, matching CSRF cookie, stored hash, and an exact allowlisted Origin.
 - Role is derived server-side from the configurable `ADMIN_EMAILS` allowlist. The initial Staging default may be `kridtayod@gmail.com`; it is not trusted from client input.
 
 ## Staging schema
@@ -57,5 +57,24 @@ Do not paste secrets into chat or commit them. Configure them directly in the Cl
 
 1. Unit tests for OAuth state/nonce, token claims, cookie flags, session expiry/revocation, CSRF, origin validation, and role derivation.
 2. D1 integration tests for attempt ownership, question membership, answer bounds, transactional/idempotent submit, and result isolation.
-3. Live Staging integration only after migration 0004 is separately approved and applied.
+3. Live Staging OAuth integration only after confirming Staging Worker secrets and callback configuration. Migration 0004 is already applied; never replay it.
 4. Keep Preview/Production secrets and D1 bindings isolated. Never enable Preview question access in Production.
+
+
+## Auth hardening implementation status
+
+- CSRF no longer rotates on `GET /api/auth/session`. The token is deterministic for the current opaque session using HMAC-SHA-256 and the Worker secret `SESSION_SECRET`; every tab receives the same value. Logout checks the CSRF header, readable CSRF cookie, stored hash, and exact Origin.
+- OAuth start is rate-limited to five starts per edge IP per rolling minute. The limiter stores only a keyed digest of `CF-Connecting-IP` in `auth_audit_log`; raw IPs, OAuth codes, tokens, and state values are not logged.
+- Expired OAuth states are deleted before a new state is inserted. Callback state consumption remains a single-use `DELETE ... RETURNING`.
+- OAuth integration tests mock the Google token and token-info endpoints. They cover successful Admin profile/session creation, exchange failure, nonce mismatch, rate limiting, expired-state cleanup, and multi-tab CSRF stability. These tests do not claim a live Google-provider sign-in.
+- `SESSION_SECRET` must be configured as a high-entropy Staging Worker secret (at least 32 characters). It must not be committed or placed in `vars`.
+
+## Staging Migration 0004 read-back
+
+Read-only Cloudflare D1 inspection confirmed:
+- `kp_schema_migrations` contains `0001_exam_engine`, `0002_exam_engine_integrity`, `0003_exam_engine_integer_question_ids`, and `0004_auth_sessions`.
+- `profiles`, `auth_oauth_states`, `auth_sessions`, and `auth_audit_log` exist with the columns defined by Migration 0004.
+- The two `trg_attempts_require_profile_*` triggers exist.
+- The six checked auth/exam tables had zero rows at the time of inspection, including profiles and sessions.
+- The D1 database-list metadata reported `num_tables: 0`, while a direct read-only `sqlite_master` query returned the tables and triggers above. Treat the metadata count as inconsistent/stale; the SQL read-back is the evidence used here.
+- The earlier statement in this document that Migration 0004 was pending is superseded by this read-back. No migration was run during this inspection.
