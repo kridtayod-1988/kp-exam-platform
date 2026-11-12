@@ -1,7 +1,9 @@
 const SESSION_COOKIE = "__Host-kp_session";
+const CSRF_COOKIE = "__Host-kp_csrf";
 const OAUTH_STATE_COOKIE = "__Host-kp_oauth_state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_TTL_SECONDS = 10 * 60;
+const OAUTH_START_LIMIT = 5;
 
 const json = (body, status = 200, headers = {}) => {
   const responseHeaders = new Headers({
@@ -21,7 +23,7 @@ const json = (body, status = 200, headers = {}) => {
 };
 
 const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)))
-  .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
 
 async function randomToken(bytes = 32) {
   const value = new Uint8Array(bytes);
@@ -33,6 +35,24 @@ async function sha256(value) {
   return base64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
 }
 
+async function hmac(value, secret) {
+  if (typeof secret !== "string" || secret.length < 32) {
+    throw new Error("SESSION_SECRET_NOT_CONFIGURED");
+  }
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  return base64url(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value)));
+}
+
+async function csrfForSession(sessionToken, env) {
+  return hmac(`kp-exam-csrf:v1:${sessionToken}`, env.SESSION_SECRET);
+}
+
 function cookieValue(request, name) {
   const cookies = request.headers.get("Cookie") || "";
   for (const part of cookies.split(";")) {
@@ -42,15 +62,18 @@ function cookieValue(request, name) {
   return "";
 }
 
-function cookieHeaders(session, csrf, maxAge = SESSION_TTL_SECONDS) {
+function sessionCookieHeaders(session, csrf, maxAge = SESSION_TTL_SECONDS) {
   return [
     `${SESSION_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`,
+    `${CSRF_COOKIE}=${csrf}; Path=/; Secure; SameSite=Lax; Max-Age=${maxAge}`
   ];
 }
 
 function clearCookieHeaders() {
   return [
     `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    `${CSRF_COOKIE}=; Path=/; Secure; SameSite=Lax; Max-Age=0`,
+    `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`
   ];
 }
 
@@ -73,7 +96,7 @@ async function getSession(request, env) {
       WHERE s.session_token_hash = ? AND s.revoked_at IS NULL
         AND s.expires_at > CURRENT_TIMESTAMP LIMIT 1`
   ).bind(tokenHash).first();
-  return row ? { ...row, tokenHash } : null;
+  return row ? { ...row, tokenHash, token } : null;
 }
 
 async function verifyGoogleIdToken(idToken, env, expectedNonce) {
@@ -90,10 +113,41 @@ async function verifyGoogleIdToken(idToken, env, expectedNonce) {
   return claims;
 }
 
+async function allowOAuthStart(request, env) {
+  const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
+  const ipKey = await hmac(`kp-exam-oauth-start:v1:${clientIp}`, env.SESSION_SECRET);
+  // One atomic INSERT/SELECT enforces the per-IP window without a separate
+  // read/write race. Only a keyed digest of the edge IP is stored in the audit log.
+  const accepted = await env.DB.prepare(
+    `INSERT INTO auth_audit_log (event_type, event_detail)
+     SELECT 'oauth_start', ?
+      WHERE (
+        SELECT COUNT(*) FROM auth_audit_log
+         WHERE event_type = 'oauth_start'
+           AND event_detail = ?
+           AND created_at >= datetime('now', '-1 minute')
+      ) < ?
+     RETURNING id`
+  ).bind(ipKey, ipKey, OAUTH_START_LIMIT).first();
+  return !!accepted;
+}
+
 async function startGoogle(request, env) {
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI ||
+      typeof env.SESSION_SECRET !== "string" || env.SESSION_SECRET.length < 32) {
     return json({ error: "OAUTH_NOT_CONFIGURED" }, 503);
   }
+
+  if (!await allowOAuthStart(request, env)) {
+    return json({ error: "OAUTH_RATE_LIMITED", retry_after: 60 }, 429, { "retry-after": "60" });
+  }
+
+  // Expired one-time states are removed on every accepted start. Callback
+  // consumption remains atomic through DELETE ... RETURNING.
+  await env.DB.prepare(
+    "DELETE FROM auth_oauth_states WHERE expires_at <= CURRENT_TIMESTAMP"
+  ).run();
+
   const state = await randomToken();
   const nonce = await randomToken();
   const stateHash = await sha256(state);
@@ -121,7 +175,9 @@ async function googleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") || "";
   const state = url.searchParams.get("state") || "";
-  if (!code || !state || cookieValue(request, OAUTH_STATE_COOKIE) !== state || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
+  if (!code || !state || cookieValue(request, OAUTH_STATE_COOKIE) !== state ||
+      !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI ||
+      typeof env.SESSION_SECRET !== "string" || env.SESSION_SECRET.length < 32) {
     return json({ error: "OAUTH_CALLBACK_INVALID" }, 400);
   }
 
@@ -160,8 +216,10 @@ async function googleCallback(request, env) {
   ).bind(profileId, claims.sub, email, claims.name || null, claims.picture || null, role).run();
 
   const profile = await env.DB.prepare("SELECT id, role FROM profiles WHERE google_sub = ?").bind(claims.sub).first();
+  if (!profile?.id) throw new Error("PROFILE_UPSERT_FAILED");
+
   const session = await randomToken();
-  const csrf = await randomToken();
+  const csrf = await csrfForSession(session, env);
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString().slice(0, 19).replace("T", " ");
   await env.DB.prepare(
     "INSERT INTO auth_sessions (session_token_hash, profile_id, csrf_token_hash, expires_at) VALUES (?, ?, ?, ?)"
@@ -172,8 +230,18 @@ async function googleCallback(request, env) {
 
   const headers = new Headers({ location: env.AUTH_SUCCESS_REDIRECT || "/" });
   headers.append("set-cookie", `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
-  for (const value of cookieHeaders(session, csrf)) headers.append("set-cookie", value);
+  for (const value of sessionCookieHeaders(session, csrf)) headers.append("set-cookie", value);
   return new Response(null, { status: 302, headers });
+}
+
+async function recordOAuthFailure(env) {
+  try {
+    await env.DB.prepare(
+      "INSERT INTO auth_audit_log (event_type, event_detail) VALUES ('login_failure', 'oauth_callback_failed')"
+    ).run();
+  } catch {
+    // Failure logging must never replace the generic OAuth error response.
+  }
 }
 
 export async function handleAuth(request, env, url) {
@@ -188,20 +256,31 @@ export async function handleAuth(request, env, url) {
     try {
       return await googleCallback(request, env);
     } catch {
+      await recordOAuthFailure(env);
       return json({ error: "OAUTH_CALLBACK_FAILED" }, 401);
     }
   }
   if (url.pathname === "/api/auth/session" && request.method === "GET") {
     const session = await getSession(request, env);
     if (!session) return json({ authenticated: false }, 401);
-    const csrf = await randomToken();
+
+    const csrf = await csrfForSession(session.token, env);
+    if (await sha256(csrf) !== session.csrf_token_hash) {
+      const headers = new Headers();
+      for (const value of clearCookieHeaders()) headers.append("set-cookie", value);
+      return json({ authenticated: false, error: "SESSION_REAUTH_REQUIRED" }, 401, headers);
+    }
+
     await env.DB.prepare(
-      "UPDATE auth_sessions SET csrf_token_hash = ?, last_seen_at = CURRENT_TIMESTAMP WHERE session_token_hash = ? AND revoked_at IS NULL"
-    ).bind(await sha256(csrf), session.tokenHash).run();
+      "UPDATE auth_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE session_token_hash = ? AND revoked_at IS NULL"
+    ).bind(session.tokenHash).run();
+
+    const headers = new Headers();
+    headers.append("set-cookie", `${CSRF_COOKIE}=${csrf}; Path=/; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`);
     return json({ authenticated: true, profile: {
       email: session.email, display_name: session.display_name,
       picture_url: session.picture_url, role: session.role
-    }, csrf_token: csrf }, 200);
+    }, csrf_token: csrf }, 200, headers);
   }
   if (url.pathname === "/api/auth/logout" && request.method === "POST") {
     if (!allowedOrigin(request, env)) return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
@@ -212,7 +291,8 @@ export async function handleAuth(request, env, url) {
       return json({ error: "UNAUTHENTICATED" }, 401, headers);
     }
     const csrf = request.headers.get("X-CSRF-Token") || "";
-    if (!csrf || await sha256(csrf) !== session.csrf_token_hash) {
+    const csrfCookie = cookieValue(request, CSRF_COOKIE);
+    if (!csrf || csrf !== csrfCookie || await sha256(csrf) !== session.csrf_token_hash) {
       return json({ error: "CSRF_INVALID" }, 403);
     }
     await env.DB.prepare(
