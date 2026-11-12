@@ -23,7 +23,7 @@ const json = (body, status = 200, headers = {}) => {
 };
 
 const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)))
-  .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+  .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 
 async function randomToken(bytes = 32) {
   const value = new Uint8Array(bytes);
