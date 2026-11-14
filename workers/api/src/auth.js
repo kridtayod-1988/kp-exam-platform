@@ -91,10 +91,10 @@ async function getSession(request, env) {
   if (!token) return null;
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare(
-    `SELECT s.profile_id, s.csrf_token_hash, s.expires_at, p.email, p.display_name, p.picture_url, p.role
+    `SELECT s.profile_id, s.csrf_token_hash, s.expires_at, p.email, p.display_name, p.picture_url, p.role, p.is_active
        FROM auth_sessions s JOIN profiles p ON p.id = s.profile_id
       WHERE s.session_token_hash = ? AND s.revoked_at IS NULL
-        AND s.expires_at > CURRENT_TIMESTAMP LIMIT 1`
+        AND s.expires_at > CURRENT_TIMESTAMP AND p.is_active = 1 LIMIT 1`
   ).bind(tokenHash).first();
   return row ? { ...row, tokenHash, token } : null;
 }
@@ -221,8 +221,14 @@ async function googleCallback(request, env) {
        last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP`
   ).bind(profileId, claims.sub, email, claims.name || null, claims.picture || null, role).run();
 
-  const profile = await env.DB.prepare("SELECT id, role FROM profiles WHERE google_sub = ?").bind(claims.sub).first();
+  const profile = await env.DB.prepare("SELECT id, role, is_active FROM profiles WHERE google_sub = ?").bind(claims.sub).first();
   if (!profile?.id) throw new Error("PROFILE_UPSERT_FAILED");
+  if (profile.is_active !== 1) {
+    await env.DB.prepare(
+      "INSERT INTO auth_audit_log (profile_id, event_type, event_detail) VALUES (?, 'login_blocked', 'account_disabled')"
+    ).bind(profile.id).run();
+    return json({ error: "ACCOUNT_DISABLED" }, 403);
+  }
 
   const session = await randomToken();
   const csrf = await csrfForSession(session, env);
