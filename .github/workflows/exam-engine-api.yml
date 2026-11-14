@@ -8,10 +8,20 @@ on:
       - feat/auth-security-phase1-2
     paths:
       - "workers/api/**"
+      - "js/**"
+      - "assets/**"
+      - "index.html"
+      - "_headers"
+      - "wrangler.jsonc"
       - ".github/workflows/exam-engine-api.yml"
   pull_request:
     paths:
       - "workers/api/**"
+      - "js/**"
+      - "assets/**"
+      - "index.html"
+      - "_headers"
+      - "wrangler.jsonc"
       - ".github/workflows/exam-engine-api.yml"
 
 jobs:
