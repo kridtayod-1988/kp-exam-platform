@@ -5,6 +5,7 @@ on:
     branches:
       - feat/exam-engine-staging
       - feat/auth-security-hardening
+      - feat/auth-security-phase1-2
     paths:
       - "workers/api/**"
       - ".github/workflows/exam-engine-api.yml"
