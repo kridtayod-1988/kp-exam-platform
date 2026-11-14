@@ -18,7 +18,14 @@
   ],
   "previews": {
     "vars": {
-      "APP_ENV": "preview"
+      "APP_ENV": "preview",
+      "CORS_ALLOWED_ORIGINS": "https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev",
+      "QUESTION_PREVIEW_ENABLED": "false",
+      "AUTH_ENABLED": "true",
+      "GOOGLE_CLIENT_ID": "796970635035-qds45ap3he066c21l8trk2iiv490fuae.apps.googleusercontent.com",
+      "ADMIN_EMAILS": "kridtayod@gmail.com",
+      "GOOGLE_REDIRECT_URI": "https://feat-exam-engine-staging-kp-exam-api.kridtayod.workers.dev/auth/google/callback",
+      "AUTH_SUCCESS_REDIRECT": "https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev/"
     },
     "d1_databases": [
       {

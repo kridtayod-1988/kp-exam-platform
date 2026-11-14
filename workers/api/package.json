@@ -1,7 +1,10 @@
 {
   "name": "kp-exam-api",
   "private": true,
+  "type": "module",
   "scripts": {
+    "test": "node --test",
+    "test:integration": "node --test test/integration.test.js",
     "deploy": "wrangler deploy",
     "preview": "wrangler preview"
   },

@@ -1,0 +1,34 @@
+name: Exam Engine API tests
+
+on:
+  push:
+    branches:
+      - feat/exam-engine-staging
+    paths:
+      - "workers/api/**"
+      - ".github/workflows/exam-engine-api.yml"
+  pull_request:
+    paths:
+      - "workers/api/**"
+      - ".github/workflows/exam-engine-api.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - name: Validate Wrangler configuration without deploying
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
+      - name: Run live Preview integration checks
+        env:
+          API_PREVIEW_URL: https://feat-exam-engine-staging-kp-exam-api.kridtayod.workers.dev
+          FRONTEND_PREVIEW_ORIGIN: https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev
+        run: npm run test:integration
