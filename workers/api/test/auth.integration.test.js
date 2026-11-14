@@ -12,7 +12,7 @@ async function hashToken(value) {
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function makeDb({ nonce = "expected-nonce", profile = { id: "profile-1", role: "admin" }, sessionRow = null, rateLimitAllowed = true } = {}) {
+function makeDb({ nonce = "expected-nonce", profile = { id: "profile-1", role: "admin", is_active: 1 }, sessionRow = null, rateLimitAllowed = true } = {}) {
   const statements = [];
   return {
     statements,
@@ -26,7 +26,7 @@ function makeDb({ nonce = "expected-nonce", profile = { id: "profile-1", role: "
             return rateLimitAllowed ? { id: 1 } : null;
           }
           if (sql.startsWith("DELETE FROM auth_oauth_states")) return { nonce };
-          if (sql.includes("SELECT id, role FROM profiles")) return profile;
+          if (sql.includes("SELECT id, role, is_active FROM profiles")) return profile;
           if (sql.includes("FROM auth_sessions s JOIN profiles")) return sessionRow;
           return null;
         },
@@ -128,7 +128,8 @@ test("OAuth success creates server-derived Admin profile and secure session; CSR
       email: "admin@example.test",
       display_name: "Test Admin",
       picture_url: null,
-      role: "admin"
+      role: "admin",
+      is_active: 1
     }
   });
   for (let tab = 0; tab < 2; tab += 1) {
@@ -210,4 +211,36 @@ test("OAuth start removes expired state records before creating a new state", as
   const insertIndex = DB.statements.findIndex(item => item.sql.includes("INSERT INTO auth_oauth_states"));
   assert.ok(cleanupIndex >= 0);
   assert.ok(insertIndex > cleanupIndex, "expired states must be cleaned before inserting a new state");
+});
+
+
+test("disabled accounts cannot complete Google login or create a session", async t => {
+  mockGoogle(t, { claims: validClaims("expected-nonce") });
+  const DB = makeDb({ profile: { id: "profile-disabled", role: "user", is_active: 0 } });
+  const callbackUrl = "https://api.example.test/auth/google/callback?code=mock-code&state=known-state";
+  const response = await handleAuth(
+    new Request(callbackUrl, { headers: { Cookie: "__Host-kp_oauth_state=known-state" } }),
+    authEnv(DB),
+    new URL(callbackUrl)
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "ACCOUNT_DISABLED");
+  assert.equal(DB.statements.some(item => item.sql.includes("INSERT INTO auth_sessions")), false);
+  assert.ok(DB.statements.some(item => item.sql.includes("login_blocked")));
+});
+
+test("disabled accounts cannot use an existing session", async () => {
+  const DB = makeDb({ sessionRow: null });
+  const sessionUrl = "https://api.example.test/api/auth/session";
+  const response = await handleAuth(
+    new Request(sessionUrl, { headers: { Cookie: "__Host-kp_session=opaque-session-token" } }),
+    authEnv(DB),
+    new URL(sessionUrl)
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).authenticated, false);
+  const sessionQuery = DB.statements.find(item => item.sql.includes("FROM auth_sessions s JOIN profiles"));
+  assert.ok(sessionQuery?.sql.includes("p.is_active = 1"), "session lookup must require an active profile");
 });
