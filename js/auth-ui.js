@@ -1,19 +1,12 @@
 (() => {
   const config = window.KP_CONFIG || {};
   const apiBase = String(config.apiBaseUrl || "").replace(/\/$/, "");
-  const container = document.querySelector(".topbar-user");
+  const action = document.getElementById("auth-action");
   const nameNode = document.getElementById("user-name");
   const planNode = document.getElementById("user-plan");
   const avatarNode = document.querySelector(".user-profile .avatar");
 
-  if (!container || !nameNode || !planNode || !avatarNode) return;
-
-  const action = document.createElement("button");
-  action.type = "button";
-  action.className = "btn soft small";
-  action.hidden = true;
-  action.setAttribute("aria-label", "เข้าสู่ระบบด้วย Google");
-  container.append(action);
+  if (!action || !nameNode || !planNode || !avatarNode) return;
 
   let csrfToken = "";
   let authenticated = false;
