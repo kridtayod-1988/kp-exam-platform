@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kp-exam-api-staging",
+  "main": "./src/index.js",
+  "compatibility_date": "2026-11-10",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_ENV": "preview",
+    "CORS_ALLOWED_ORIGINS": "https://kp-exam-platform-staging.kridtayod.workers.dev",
+    "QUESTION_PREVIEW_ENABLED": "false",
+    "AUTH_ENABLED": "true",
+    "GOOGLE_CLIENT_ID": "796970635035-qds45ap3he066c21l8trk2iiv490fuae.apps.googleusercontent.com",
+    "ADMIN_EMAILS": "kridtayod@gmail.com",
+    "GOOGLE_REDIRECT_URI": "https://kp-exam-api-staging.kridtayod.workers.dev/auth/google/callback",
+    "AUTH_SUCCESS_REDIRECT": "https://kp-exam-platform-staging.kridtayod.workers.dev/"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kp_exam_platform_staging",
+      "database_id": "1c5fd65b-88d5-45da-90c0-543421f90576"
+    }
+  ]
+}
