@@ -8,13 +8,13 @@
   },
   "vars": {
     "APP_ENV": "preview",
-    "CORS_ALLOWED_ORIGINS": "https://kp-exam-platform-staging.kridtayod.workers.dev",
+    "CORS_ALLOWED_ORIGINS": "https://kp-exam-platform-staging.kridtayod.workers.dev,https://feat-auth-security-phase1-2-kp-exam-platform-staging.workers.dev",
     "QUESTION_PREVIEW_ENABLED": "false",
     "AUTH_ENABLED": "true",
     "GOOGLE_CLIENT_ID": "796970635035-qds45ap3he066c21l8trk2iiv490fuae.apps.googleusercontent.com",
     "ADMIN_EMAILS": "kridtayod@gmail.com",
-    "GOOGLE_REDIRECT_URI": "https://kp-exam-api-staging.kridtayod.workers.dev/auth/google/callback",
-    "AUTH_SUCCESS_REDIRECT": "https://kp-exam-platform-staging.kridtayod.workers.dev/"
+    "GOOGLE_REDIRECT_URI": "https://kp-exam-api-staging.workers.dev/auth/google/callback",
+    "AUTH_SUCCESS_REDIRECT": "https://kp-exam-platform-staging.workers.dev/"
   },
   "d1_databases": [
     {
