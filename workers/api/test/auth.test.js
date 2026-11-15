@@ -10,7 +10,7 @@ function dbStub(firstResult = null) {
       return {
         values: [],
         bind(...values) { this.values = values; return this; },
-        async first() { statements.push({ sql, values: this.values, operation: "first" }); return firstResult; },
+        async first() { statements.push({ sql, values: this.values, operation: "first" }); if (sql.includes("INSERT INTO auth_audit_log") && sql.includes("SELECT 'oauth_start'")) return { id: 1 }; return firstResult; },
         async run() { statements.push({ sql, values: this.values }); return { success: true }; }
       };
     }
@@ -21,7 +21,7 @@ test("Google OAuth start creates one-time state and redirects to Google", async 
   const DB = dbStub();
   const response = await handleAuth(
     new Request("https://api.example.test/auth/google/start"),
-    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "staging-client-id", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback" },
+    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "staging-client-id", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback", SESSION_SECRET: "test-session-secret-at-least-32-bytes" },
     new URL("https://api.example.test/auth/google/start")
   );
   assert.equal(response.status, 302);
@@ -32,8 +32,9 @@ test("Google OAuth start creates one-time state and redirects to Google", async 
   assert.ok(target.searchParams.get("state"));
   assert.ok(target.searchParams.get("nonce"));
   assert.match(response.headers.get("set-cookie"), /__Host-kp_oauth_state=.*HttpOnly.*Secure.*SameSite=Lax/);
-  assert.equal(DB.statements.length, 1);
-  assert.match(DB.statements[0].sql, /INSERT INTO auth_oauth_states/);
+  assert.equal(DB.statements.length, 3);
+  assert.ok(DB.statements.some(({ sql }) => /INSERT INTO auth_oauth_states/.test(sql)));
+  assert.ok(DB.statements.some(({ sql }) => /DELETE FROM auth_oauth_states WHERE expires_at/.test(sql)));
 });
 
 test("Google OAuth start fails closed when Staging credentials are not configured", async () => {
@@ -84,7 +85,7 @@ test("OAuth callback rejects a state that is not bound to the browser cookie", a
     new Request("https://api.example.test/auth/google/callback?code=abc&state=query-state", {
       headers: { Cookie: "__Host-kp_oauth_state=other-state" }
     }),
-    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "client", GOOGLE_CLIENT_SECRET: "secret", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback" },
+    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "client", GOOGLE_CLIENT_SECRET: "secret", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback", SESSION_SECRET: "test-session-secret-at-least-32-bytes" },
     new URL("https://api.example.test/auth/google/callback?code=abc&state=query-state")
   );
   assert.equal(response.status, 400);
@@ -98,7 +99,7 @@ test("OAuth callback rejects expired, consumed, or unknown state before exchangi
     new Request("https://api.example.test/auth/google/callback?code=abc&state=valid-state", {
       headers: { Cookie: "__Host-kp_oauth_state=valid-state" }
     }),
-    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "client", GOOGLE_CLIENT_SECRET: "secret", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback" },
+    { DB, APP_ENV: "preview", AUTH_ENABLED: "true", GOOGLE_CLIENT_ID: "client", GOOGLE_CLIENT_SECRET: "secret", GOOGLE_REDIRECT_URI: "https://api.example.test/auth/google/callback", SESSION_SECRET: "test-session-secret-at-least-32-bytes" },
     new URL("https://api.example.test/auth/google/callback?code=abc&state=valid-state")
   );
   assert.equal(response.status, 400);
@@ -132,7 +133,7 @@ test("logout rejects a missing or incorrect CSRF token without revoking the sess
       method: "POST",
       headers: {
         Origin: "https://frontend.example",
-        Cookie: "__Host-kp_session=known-session",
+        Cookie: "__Host-kp_session=known-session; __Host-kp_csrf=wrong-csrf",
         "X-CSRF-Token": "wrong-csrf"
       }
     }),
@@ -157,7 +158,7 @@ test("logout revokes the session and records an audit event with a valid CSRF to
       method: "POST",
       headers: {
         Origin: "https://frontend.example",
-        Cookie: "__Host-kp_session=known-session",
+        Cookie: "__Host-kp_session=known-session; __Host-kp_csrf=expected-csrf",
         "X-CSRF-Token": "expected-csrf"
       }
     }),

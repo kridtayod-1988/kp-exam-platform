@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/exam-engine-staging
+      - feat/auth-security-hardening
     paths:
       - "workers/api/**"
       - ".github/workflows/exam-engine-api.yml"
