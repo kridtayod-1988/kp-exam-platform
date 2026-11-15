@@ -33,7 +33,11 @@
   <main class="main">
     <header class="topbar">
       <div class="topbar-heading"><button id="menu-toggle" class="menu-toggle" aria-label="เปิดเมนู">☰</button><div><div class="eyebrow">KP EXAMINATION PLATFORM</div><h1 id="page-title">ภาพรวม</h1></div></div>
-      <div class="topbar-user"><button class="icon-button" id="help-button" aria-label="ความช่วยเหลือ">?</button><div class="user-profile"><span class="avatar">G</span><span><b id="user-name">ผู้เยี่ยมชม</b><small id="user-plan">Guest · ยังไม่ได้เข้าสู่ระบบ</small></span></div></div>
+      <div class="topbar-user">
+        <button class="icon-button" id="help-button" aria-label="ความช่วยเหลือ">?</button>
+        <div class="user-profile"><span class="avatar">G</span><span><b id="user-name">ผู้เยี่ยมชม</b><small id="user-plan">Guest · ยังไม่ได้เข้าสู่ระบบ</small></span></div>
+        <button class="btn soft small" id="auth-action" type="button" aria-label="สถานะการเข้าสู่ระบบ">กำลังตรวจสอบ…</button>
+      </div>
     </header>
     <section id="view-container" class="view-container" aria-live="polite"></section>
     <footer><span>© <span id="year-now"></span> KP e-Exam Platform</span><span>เตรียมสอบอย่างเป็นระบบ ก้าวไปอย่างมั่นใจ</span></footer>
@@ -43,5 +47,6 @@
 <script src="js/config.js"></script>
 <script src="js/exam-engine.js"></script>
 <script src="js/app.js"></script>
+<script src="js/auth-ui.js"></script>
 </body>
 </html>

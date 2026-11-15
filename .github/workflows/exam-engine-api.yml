@@ -5,12 +5,23 @@ on:
     branches:
       - feat/exam-engine-staging
       - feat/auth-security-hardening
+      - feat/auth-security-phase1-2
     paths:
       - "workers/api/**"
+      - "js/**"
+      - "assets/**"
+      - "index.html"
+      - "_headers"
+      - "wrangler.jsonc"
       - ".github/workflows/exam-engine-api.yml"
   pull_request:
     paths:
       - "workers/api/**"
+      - "js/**"
+      - "assets/**"
+      - "index.html"
+      - "_headers"
+      - "wrangler.jsonc"
       - ".github/workflows/exam-engine-api.yml"
 
 jobs:
@@ -26,9 +37,14 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm test
-      - name: Validate Wrangler configuration without deploying
+      - name: Validate non-auth branch Wrangler configuration without deploying
+        if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2'
         run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
+      - name: Validate isolated Auth Staging Wrangler configuration without deploying
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feat/auth-security-phase1-2') || (github.event_name == 'pull_request' && github.head_ref == 'feat/auth-security-phase1-2')
+        run: npx wrangler deploy --config wrangler.staging.jsonc --dry-run --outdir .wrangler-staging-dry-run
       - name: Run live Preview integration checks
+        if: github.ref == 'refs/heads/feat/exam-engine-staging' || github.base_ref == 'feat/exam-engine-staging'
         env:
           API_PREVIEW_URL: https://feat-exam-engine-staging-kp-exam-api.kridtayod.workers.dev
           FRONTEND_PREVIEW_ORIGIN: https://feat-exam-engine-staging-kp-exam-platform.kridtayod.workers.dev
