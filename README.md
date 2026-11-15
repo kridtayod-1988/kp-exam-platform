@@ -22,12 +22,20 @@
 
 ## สถานะการเชื่อมต่อ
 
-- Frontend API base URL: `https://kp-exam-api.kridtayod.workers.dev`
+- Frontend API base URL ใน branch นี้: `https://kp-exam-api-staging.kridtayod.workers.dev`
 - API year list: `GET /api/exam-years`
-- Google Authentication: **ปิดใช้งานอยู่** (`authEnabled: false`) จนกว่า Auth + Security จะผ่านการตรวจสอบและทดสอบ User/Admin จริง
+- Google Authentication: เปิด Feature Flag ใน Staging (`authEnabled: true`) และ Frontend เริ่ม flow ผ่าน `/auth/google/start` ได้แล้ว อย่างไรก็ตาม การเปิด Flag ไม่ใช่หลักฐานว่า Auth ผ่านการทดสอบ End-to-End กับ Google และ Browser จริงครบถ้วน จึงยังไม่ถือว่าพร้อม Production
+- การเปิดใช้ Production ต้องตรวจสอบ OAuth callback, Session, CSRF, Logout, User/Admin authorization และสถานะบัญชี inactive ให้ผ่านก่อน
 - Exam Engine frontend รองรับการเริ่ม Attempt, เลือกคำตอบ, เปลี่ยนข้อ และส่งคำตอบผ่าน API adapter แล้ว แต่ API `POST /api/attempts` และ `POST /api/attempts/:attemptId/submit` ยังต้องพัฒนาและทดสอบฝั่ง Server ก่อนใช้งานจริง
 - Server-side scoring, ประวัติผลสอบ, payment และ Admin CRUD ยังไม่ถือว่าเปิดใช้งานจริง
 - หน้าสถิติและแพ็กเกจบางส่วนเป็น UI placeholder และจะต้องเชื่อมข้อมูลจาก API ในเฟสถัดไป
+
+## Auth Staging configuration
+
+- Worker Staging ใช้ `workers/api/wrangler.staging.jsonc` และ D1 database `kp_exam_platform_staging`
+- Frontend Staging ใช้ API base URL ข้างต้น โดย CORS allowlist ต้องตรงกับ Frontend Staging origin
+- CI สำหรับ Auth hardening branch ตรวจ Wrangler Staging configuration ด้วย `wrangler deploy --dry-run` เท่านั้น ขั้นตอนนี้เป็นการตรวจสอบการ build/configuration ไม่ได้ Deploy Worker
+- ห้ามนำค่า OAuth client secret, session secret หรือ credentials ไปใส่ในไฟล์ `vars` หรือ Frontend; ให้จัดเก็บค่าลับผ่าน Cloudflare Worker Secrets
 
 ## Exam Engine integration
 
@@ -58,4 +66,4 @@ python -m http.server 8000
 
 ## Deployment
 
-การเปลี่ยนแปลงใน branch `feat/full-ux-ui` ยังแยกจาก `main` เพื่อ review ก่อน merge และ deploy จริง
+การเปลี่ยนแปลงใน branch นี้ยังแยกจาก `main` เพื่อ review ก่อน merge และ deploy จริง

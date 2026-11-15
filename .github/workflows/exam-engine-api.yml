@@ -6,6 +6,7 @@ on:
       - feat/exam-engine-staging
       - feat/auth-security-hardening
       - feat/auth-security-phase1-2
+      - chore/auth-ci-readme-alignment
     paths:
       - "workers/api/**"
       - "js/**"
@@ -38,10 +39,10 @@ jobs:
       - run: npm install
       - run: npm test
       - name: Validate non-auth branch Wrangler configuration without deploying
-        if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2'
+        if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2' && github.ref != 'refs/heads/feat/auth-security-hardening' && github.head_ref != 'feat/auth-security-hardening' && github.base_ref != 'feat/auth-security-hardening' && github.ref != 'refs/heads/chore/auth-ci-readme-alignment' && github.head_ref != 'chore/auth-ci-readme-alignment'
         run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
       - name: Validate isolated Auth Staging Wrangler configuration without deploying
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/feat/auth-security-phase1-2') || (github.event_name == 'pull_request' && github.head_ref == 'feat/auth-security-phase1-2')
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/feat/auth-security-phase1-2' || github.ref == 'refs/heads/feat/auth-security-hardening' || github.ref == 'refs/heads/chore/auth-ci-readme-alignment')) || (github.event_name == 'pull_request' && (github.head_ref == 'feat/auth-security-phase1-2' || github.base_ref == 'feat/auth-security-hardening' || github.head_ref == 'chore/auth-ci-readme-alignment'))
         run: npx wrangler deploy --config wrangler.staging.jsonc --dry-run --outdir .wrangler-staging-dry-run
       - name: Run live Preview integration checks
         if: github.ref == 'refs/heads/feat/exam-engine-staging' || github.base_ref == 'feat/exam-engine-staging'
