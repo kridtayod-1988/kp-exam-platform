@@ -327,11 +327,11 @@ export async function handleExamEngine(request, env, url) {
     if (request.method === "POST" && url.pathname === "/api/attempts") {
       return await startAttempt(request, env);
     }
-    const submitMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)/submit$")));
+    const submitMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)/submit$"));
     if (request.method === "POST" && submitMatch) {
       return await submitAttempt(request, env, decodeURIComponent(submitMatch[1]));
     }
-    const resultMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)/result$")));
+    const resultMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)/result$"));
     if (request.method === "GET" && resultMatch) {
       const session = await getAuthenticatedSession(request, env);
       if (!session) return fail("UNAUTHENTICATED", "กรุณาเข้าสู่ระบบก่อนดูผลสอบ", 401);
