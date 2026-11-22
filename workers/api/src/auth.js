@@ -99,6 +99,20 @@ async function getSession(request, env) {
   return row ? { ...row, tokenHash, token } : null;
 }
 
+export async function getAuthenticatedSession(request, env) {
+  return getSession(request, env);
+}
+
+export async function verifySessionCsrf(request, session) {
+  if (!session || !allowedOrigin(request, { CORS_ALLOWED_ORIGINS: request.headers.get("Origin") || "" })) {
+    return false;
+  }
+  const csrf = request.headers.get("X-CSRF-Token") || "";
+  const csrfCookie = cookieValue(request, CSRF_COOKIE);
+  if (!csrf || csrf !== csrfCookie) return false;
+  return await sha256(csrf) === session.csrf_token_hash;
+}
+
 async function verifyGoogleIdToken(idToken, env, expectedNonce) {
   const response = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken));
   if (!response.ok) throw new Error("GOOGLE_TOKEN_INVALID");
