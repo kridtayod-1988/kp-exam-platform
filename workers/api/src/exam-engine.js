@@ -11,7 +11,7 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 const fail = (code, message, status) => json({ error: code, message }, status);
 
 const ALLOWED_QUESTION_COUNTS = new Set([10, 25, 50]);
-const ALLOWED_MODES = new Set(["practice", "simulation"]);
+const ALLOWED_MODES = new Set(["practice"]);
 const MAX_BODY_BYTES = 64 * 1024;
 
 async function readJson(request) {
@@ -58,6 +58,20 @@ async function authenticatedMutation(request, env) {
   return { session };
 }
 
+async function allowAttemptStart(env, profileId) {
+  const accepted = await env.DB.prepare(
+    `INSERT INTO auth_audit_log (profile_id, event_type, event_detail)
+     SELECT ?, 'attempt_start', 'api'
+      WHERE (
+        SELECT COUNT(*) FROM auth_audit_log
+         WHERE profile_id = ? AND event_type = 'attempt_start'
+           AND created_at >= datetime('now', '-1 hour')
+      ) < 10
+     RETURNING id`
+  ).bind(profileId, profileId).first();
+  return !!accepted;
+}
+
 async function startAttempt(request, env) {
   const auth = await authenticatedMutation(request, env);
   if (auth.error) return auth.error;
@@ -102,6 +116,9 @@ async function startAttempt(request, env) {
   const rows = selected.results || [];
   if (rows.length < questionCount) {
     return fail("INSUFFICIENT_QUESTIONS", `ปีข้อสอบนี้มีข้อสอบที่พร้อมใช้งานเพียง ${rows.length} ข้อ`, 422);
+  }
+  if (!await allowAttemptStart(env, auth.session.profile_id)) {
+    return fail("ATTEMPT_RATE_LIMITED", "เริ่มชุดข้อสอบครบจำนวนที่กำหนดแล้ว กรุณาลองใหม่ภายหลัง", 429);
   }
 
   const attemptId = crypto.randomUUID();
