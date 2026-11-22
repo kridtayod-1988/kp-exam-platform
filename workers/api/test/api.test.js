@@ -123,9 +123,10 @@ test("returns 404 for inactive or unknown exam year", async () => {
   assert.equal(response.status, 404);
 });
 
-test("does not expose write endpoints in Phase 1", async () => {
+test("keeps attempt endpoints disabled outside the authenticated Preview environment", async () => {
   const response = await worker.fetch(request("/api/attempts", { method: "POST" }), { DB: makeDb() });
-  assert.equal(response.status, 405);
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "EXAM_ENGINE_NOT_ENABLED");
 });
 
 test("rejects origins not in the explicit allowlist", async () => {
