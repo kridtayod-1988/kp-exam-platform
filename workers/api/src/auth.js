@@ -103,8 +103,8 @@ export async function getAuthenticatedSession(request, env) {
   return getSession(request, env);
 }
 
-export async function verifySessionCsrf(request, session) {
-  if (!session || !allowedOrigin(request, { CORS_ALLOWED_ORIGINS: request.headers.get("Origin") || "" })) {
+export async function verifySessionCsrf(request, env, session) {
+  if (!session || !allowedOrigin(request, env)) {
     return false;
   }
   const csrf = request.headers.get("X-CSRF-Token") || "";
