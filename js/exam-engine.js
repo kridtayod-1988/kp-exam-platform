@@ -5,13 +5,20 @@
 
   async function request(path, options = {}) {
     if (!baseUrl) throw new Error('ยังไม่ได้กำหนด API URL');
+    const method = options.method || 'GET';
+    const headers = {
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers || {})
+    };
+    if (method !== 'GET') {
+      const csrfToken = window.KP_AUTH?.csrfToken;
+      if (!csrfToken) throw new Error('กรุณาเข้าสู่ระบบก่อนเริ่มหรือส่งข้อสอบ');
+      headers['X-CSRF-Token'] = csrfToken;
+    }
     const response = await fetch(baseUrl + path, {
-      method: options.method || 'GET',
-      headers: {
-        Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(options.headers || {})
-      },
+      method,
+      headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
       credentials: 'include'
     });
@@ -43,7 +50,7 @@
     const data = await request('/api/attempts', {
       method: 'POST',
       body: {
-        exam_year_id: examYearId,
+        exam_year_id: Number(examYearId),
         question_count: questionCount,
         mode
       }
