@@ -32,7 +32,8 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
     questionRows,
     attempt,
     answers: new Map(),
-    insertedAttempt: null
+    insertedAttempt: null,
+    batchCalls: 0
   };
   const sessionRow = {
     profile_id: "profile-1",
@@ -59,7 +60,9 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
           if (sql.includes("INSERT INTO auth_audit_log")) return { id: 1 };
           if (sql.includes("FROM exam_years")) return { id: 1, year_be: 2567, label: "พ.ศ. 2567" };
           if (sql.includes("FROM user_attempts") && sql.includes("WHERE id = ? AND user_id = ?")) {
-            return state.attempt;
+            return state.attempt && state.attempt.id === values[0] && state.attempt.user_id === values[1]
+              ? state.attempt
+              : null;
           }
           return null;
         },
@@ -99,6 +102,7 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
       };
     },
     async batch(statements) {
+      state.batchCalls += 1;
       if (!state.attempt || state.attempt.status !== "in_progress") {
         return [{ meta: { changes: 0 } }];
       }
@@ -217,4 +221,58 @@ test("submission scores on the server and reveals explanations only after submit
   assert.equal(payload.data.result.questions[0].correct_index, 1);
   assert.equal(payload.data.result.questions[0].explanation, "private explanation");
   assert.equal(DB.state.attempt.status, "submitted");
+});
+
+
+test("attempt results are isolated to the owning profile", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "another-profile",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "submitted",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22 12:00:00",
+      submitted_at: "2026-11-22T12:05:00.1230000000Z",
+      score: 8
+    }
+  });
+  const env = await makeEnv(DB);
+  const request = makeRequest(`/api/attempts/${ATTEMPT_ID}/result`);
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "ATTEMPT_NOT_FOUND");
+});
+
+test("repeated submission returns the saved result without recalculating or writing again", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "submitted",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22 12:00:00",
+      submitted_at: "2026-11-22T12:05:00.1230000000Z",
+      score: 7
+    }
+  });
+  const env = await makeEnv(DB);
+  const request = makeRequest(`/api/attempts/${ATTEMPT_ID}/submit`, {
+    method: "POST",
+    body: { answers: [] }
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.data.result.score, 7);
+  assert.equal(DB.state.batchCalls, 0);
 });
