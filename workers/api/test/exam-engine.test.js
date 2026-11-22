@@ -56,6 +56,7 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
         bind(...args) { values = args; this.values = args; return this; },
         async first() {
           if (sql.includes("FROM auth_sessions s JOIN profiles")) return sessionRow;
+          if (sql.includes("INSERT INTO auth_audit_log")) return { id: 1 };
           if (sql.includes("FROM exam_years")) return { id: 1, year_be: 2567, label: "พ.ศ. 2567" };
           if (sql.includes("FROM user_attempts") && sql.includes("WHERE id = ? AND user_id = ?")) {
             return state.attempt;
