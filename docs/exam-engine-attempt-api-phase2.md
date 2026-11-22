@@ -15,9 +15,9 @@ This work is preview-only. The API returns `EXAM_ENGINE_NOT_ENABLED` outside `AP
 Request fields:
 - `exam_year_id`: active `exam_years.id`
 - `question_count`: 10, 25, or 50
-- `mode`: `practice` or `simulation` (defaults to `practice`)
+- `mode`: `practice` only (defaults to `practice`; simulation remains disabled until time-limit enforcement is implemented)
 
-The Worker verifies the session and CSRF token, checks that the exam year is active, selects the question IDs on the server, stores an immutable question-ID snapshot in `user_attempts`, and returns only public question fields. Answer keys and explanations are not included.
+The Worker verifies the session and CSRF token, checks that the exam year is active, selects the question IDs on the server, applies a limit of 10 attempt starts per profile per hour, stores an immutable question-ID snapshot in `user_attempts`, and returns only public question fields. Answer keys and explanations are not included.
 
 ### Submit an attempt
 
