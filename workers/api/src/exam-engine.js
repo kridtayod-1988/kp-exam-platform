@@ -322,18 +322,22 @@ export async function handleExamEngine(request, env, url) {
   if (env.APP_ENV !== "preview" || env.AUTH_ENABLED !== "true") {
     return fail("EXAM_ENGINE_NOT_ENABLED", "Exam Engine ยังไม่เปิดใช้งานใน Environment นี้", 404);
   }
-  if (request.method === "POST" && url.pathname === "/api/attempts") {
-    return startAttempt(request, env);
+  try {
+    if (request.method === "POST" && url.pathname === "/api/attempts") {
+      return await startAttempt(request, env);
+    }
+    const submitMatch = url.pathname.match(/^\\/api\\/attempts\\/([^/]+)\\/submit$/);
+    if (request.method === "POST" && submitMatch) {
+      return await submitAttempt(request, env, decodeURIComponent(submitMatch[1]));
+    }
+    const resultMatch = url.pathname.match(/^\\/api\\/attempts\\/([^/]+)\\/result$/);
+    if (request.method === "GET" && resultMatch) {
+      const session = await getAuthenticatedSession(request, env);
+      if (!session) return fail("UNAUTHENTICATED", "กรุณาเข้าสู่ระบบก่อนดูผลสอบ", 401);
+      return await getAttemptResult(env, decodeURIComponent(resultMatch[1]), session.profile_id);
+    }
+    return null;
+  } catch {
+    return fail("INTERNAL_ERROR", "เกิดข้อผิดพลาดในการประมวลผลข้อสอบ", 500);
   }
-  const submitMatch = url.pathname.match(/^\/api\/attempts\/([^/]+)\/submit$/);
-  if (request.method === "POST" && submitMatch) {
-    return submitAttempt(request, env, decodeURIComponent(submitMatch[1]));
-  }
-  const resultMatch = url.pathname.match(/^\/api\/attempts\/([^/]+)\/result$/);
-  if (request.method === "GET" && resultMatch) {
-    const session = await getAuthenticatedSession(request, env);
-    if (!session) return fail("UNAUTHENTICATED", "กรุณาเข้าสู่ระบบก่อนดูผลสอบ", 401);
-    return getAttemptResult(env, decodeURIComponent(resultMatch[1]), session.profile_id);
-  }
-  return null;
 }
