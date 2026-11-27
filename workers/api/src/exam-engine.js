@@ -99,7 +99,7 @@ async function startAttempt(request, env) {
   ).bind(examYearId).first();
   if (!year) return fail("EXAM_YEAR_NOT_FOUND", "ไม่พบปีข้อสอบหรือปีข้อสอบยังไม่เปิดใช้งาน", 404);
 
-  const selected = await env.DB.prepare(
+  const unseen = await env.DB.prepare(
     `SELECT q.id, q.question_text, q.passage, q.choices, q.difficulty,
             q.subcategory_id, sc.name AS subject_name
        FROM questions q
@@ -109,11 +109,38 @@ async function startAttempt(request, env) {
          ON sg.id = sc.subject_group_id AND sg.is_active = 1
       WHERE q.exam_year_id = ? AND q.is_active = 1
         AND (q.subcategory_id IS NULL OR sg.id IS NOT NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM user_seen_questions seen
+           WHERE seen.profile_id = ? AND seen.question_id = q.id
+        )
       ORDER BY RANDOM()
       LIMIT ?`
-  ).bind(examYearId, questionCount).all();
+  ).bind(examYearId, auth.session.profile_id, questionCount).all();
 
-  const rows = selected.results || [];
+  const unseenRows = unseen.results || [];
+  const remainingCount = questionCount - unseenRows.length;
+  let rows = unseenRows;
+  if (remainingCount > 0) {
+    const selectedIds = unseenRows.map(row => row.id);
+    const exclusion = selectedIds.length
+      ? `AND q.id NOT IN (${selectedIds.map(() => "?").join(",")})`
+      : "";
+    const fallback = await env.DB.prepare(
+      `SELECT q.id, q.question_text, q.passage, q.choices, q.difficulty,
+              q.subcategory_id, sc.name AS subject_name
+         FROM questions q
+         LEFT JOIN subcategories sc
+           ON sc.id = q.subcategory_id AND sc.is_active = 1
+         LEFT JOIN subject_groups sg
+           ON sg.id = sc.subject_group_id AND sg.is_active = 1
+        WHERE q.exam_year_id = ? AND q.is_active = 1
+          AND (q.subcategory_id IS NULL OR sg.id IS NOT NULL)
+          ${exclusion}
+        ORDER BY RANDOM()
+        LIMIT ?`
+    ).bind(examYearId, ...selectedIds, remainingCount).all();
+    rows = [...unseenRows, ...(fallback.results || [])];
+  }
   if (rows.length < questionCount) {
     return fail("INSUFFICIENT_QUESTIONS", `ปีข้อสอบนี้มีข้อสอบที่พร้อมใช้งานเพียง ${rows.length} ข้อ`, 422);
   }
@@ -212,6 +239,7 @@ async function loadResult(env, attempt) {
     score,
     total,
     percentage: total ? Math.round((score / total) * 10000) / 100 : 0,
+    xp_awarded: score * 10,
     started_at: attempt.started_at,
     submitted_at: attempt.submitted_at,
     questions
@@ -309,6 +337,36 @@ async function submitAttempt(request, env, attemptId) {
       attemptId, auth.session.profile_id, submissionMarker
     ));
   }
+
+  // XP and Anti-Repeat history are written in the same D1 batch as the
+  // conditional submission claim. Losing concurrent submissions cannot
+  // award XP or mark questions as seen under another request's marker.
+  statements.push(env.DB.prepare(
+    `UPDATE profiles
+        SET xp = xp + ?
+      WHERE id = ? AND EXISTS (
+        SELECT 1 FROM user_attempts
+         WHERE id = ? AND user_id = ? AND status = 'submitted' AND submitted_at = ?
+      )`
+  ).bind(score * 10, auth.session.profile_id, attemptId, auth.session.profile_id, submissionMarker));
+
+  statements.push(env.DB.prepare(
+    `INSERT INTO user_seen_questions (profile_id, question_id, seen_at)
+     SELECT ?, CAST(value AS INTEGER), ?
+       FROM json_each(?)
+      WHERE EXISTS (
+        SELECT 1 FROM user_attempts
+         WHERE id = ? AND user_id = ? AND status = 'submitted' AND submitted_at = ?
+      )
+     ON CONFLICT(profile_id, question_id) DO NOTHING`
+  ).bind(
+    auth.session.profile_id,
+    submissionMarker,
+    JSON.stringify(snapshotIds),
+    attemptId,
+    auth.session.profile_id,
+    submissionMarker
+  ));
 
   const batchResult = await env.DB.batch(statements);
   const claim = batchResult?.[0];
