@@ -9,6 +9,7 @@ on:
       - feat/auth-security-phase1-2
       - feat/auth-security-phase3
       - feat/admin-api-staging
+      - feat/admin-api-mainline
     paths:
       - "workers/api/**"
       - "js/**"
