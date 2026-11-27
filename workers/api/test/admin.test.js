@@ -81,9 +81,29 @@ async function setup(role = "admin") {
   await DB.init();
   return {
     DB,
-    env: { DB, APP_ENV: "preview", AUTH_ENABLED: "true", CORS_ALLOWED_ORIGINS: ORIGIN }
+    env: { DB, APP_ENV: "preview", AUTH_ENABLED: "true", ADMIN_API_ENABLED: "true", CORS_ALLOWED_ORIGINS: ORIGIN }
   };
 }
+
+test("Admin API is disabled by default and requires its explicit feature toggle", async () => {
+  const { DB, env } = await setup();
+  env.ADMIN_API_ENABLED = "false";
+  const request = makeRequest("/api/admin/users");
+  const response = await handleAdmin(request, env, new URL(request.url));
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "ADMIN_API_NOT_ENABLED");
+  assert.equal(DB.state.statements.length, 0);
+});
+
+test("Admin API remains disabled when authentication is disabled", async () => {
+  const { DB, env } = await setup();
+  env.AUTH_ENABLED = "false";
+  const request = makeRequest("/api/admin/users");
+  const response = await handleAdmin(request, env, new URL(request.url));
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "ADMIN_API_NOT_ENABLED");
+  assert.equal(DB.state.statements.length, 0);
+});
 
 test("Admin API denies unauthenticated requests with 401", async () => {
   const { env } = await setup();
