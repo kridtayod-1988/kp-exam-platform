@@ -300,7 +300,7 @@ test("concurrent submissions award XP only once", async () => {
   assert.equal(DB.state.xp, 10);
   assert.ok(DB.state.batchCalls >= 1 && DB.state.batchCalls <= 2);
   assert.equal(payloads.filter(payload => payload.data?.result?.score === 1).length, 2);
-  assert.match(DB.state.attempt.submitted_at, /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{13}Z$/);
+  assert.match(DB.state.attempt.submitted_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{13}Z$/);
 });
 
 test("repeated submission returns the saved result without recalculating or writing again", async () => {
