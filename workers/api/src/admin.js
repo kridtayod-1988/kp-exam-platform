@@ -1,4 +1,4 @@
-import { getAuthenticatedSession, verifySessionCsrf } from "./auth.js";
+import { verifySessionCsrf } from "./auth.js";
 import { requireAdmin } from "./authz.js";
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
