@@ -2,8 +2,11 @@
   "name": "kp-exam-platform",
   "private": true,
   "scripts": {
-    "deploy:frontend": "wrangler deploy",
-    "preview:frontend": "wrangler preview"
+    "deploy:frontend": "wrangler deploy --env staging",
+    "deploy:frontend:staging": "wrangler deploy --env staging",
+    "deploy:frontend:production": "wrangler deploy",
+    "preview:frontend": "wrangler dev --env staging",
+    "preview:frontend:staging": "wrangler dev --env staging"
   },
   "devDependencies": {
     "wrangler": "^4.160.0"
