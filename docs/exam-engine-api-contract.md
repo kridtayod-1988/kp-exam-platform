@@ -13,6 +13,23 @@ This document defines the API contract required by `js/exam-engine.js`. It is an
 - Use a transaction for answer persistence and attempt completion; make submission idempotent.
 - Validate question count against the allowed values (10, 25, 50), exam year active status, and available question count.
 - Add rate limits and audit events for attempt creation and submission.
+- Preview-only question reads require `APP_ENV=preview`, `QUESTION_PREVIEW_ENABLED=true`, and a server-held `QUESTION_PREVIEW_TOKEN`. This token is not a substitute for production Auth.
+
+## v4 schema mapping and Phase 1 boundary
+
+| KP-EXAM v4 concept | Staging Phase 1 representation | Status |
+| --- | --- | --- |
+| Exam year catalogue | `exam_years` | Added |
+| Subject taxonomy | `subject_groups`, `subcategories` | Added; child reads are constrained by active parent |
+| Question bank | `questions.exam_year_id`, `subcategory_id`, `choices`, `correct_index`, `explanation`, `source_round` | Year-linked subset |
+| User identity / role | v4 `profiles.id`, `profiles.role` | Not created or duplicated by this migration; must be joined after Auth integration |
+| Exam-set composition | `exam_sets`, `exam_set_sections`, `exam_set_questions` | Not part of this phase |
+| Attempt / answer records | `user_attempts`, `user_answers` | Reserved tables; no write API |
+| Audit / entitlement / verification | v4 audit, membership, and verification tables | Deferred to their owning modules |
+
+`user_attempts.user_id` remains an opaque text identifier in this isolated phase because the v4 `profiles` table and Auth migration are not yet part of this branch's dependency chain. Before enabling attempt writes, a follow-up migration must add and validate the foreign-key relationship to `profiles.id` (or the final canonical user table). Do not treat the current reserved tables as Auth-complete.
+
+Migration `0002_exam_engine_integrity.sql` adds SQLite triggers for choice structure, attempt question snapshots, score bounds, and answer membership/index validation. Apply migrations in order to Staging only.
 
 ## 1. Create an attempt
 
@@ -92,4 +109,4 @@ Suggested status codes: 400 invalid input, 401 unauthenticated, 403 inactive/una
 
 ## Current integration status
 
-The current repository contains the frontend adapter and UX flow only. The API implementation and live endpoint verification remain separate work. The legacy `schema.sql` in this repository uses an older `exams/exam_results` model and must not be applied to the current D1 database without a reviewed migration.
+The current repository contains the frontend adapter and UX flow only. Attempt creation and submission remain disabled in this phase. The legacy `schema.sql` uses an older `exams/exam_results` model and must not be applied to the current D1 database.

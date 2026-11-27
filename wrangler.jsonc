@@ -9,5 +9,11 @@
     "directory": ".",
     "not_found_handling": "single-page-application"
   },
-  "previews": {}
+  "previews": {},
+  "env": {
+    "staging": {
+      "name": "kp-exam-platform-staging",
+      "workers_dev": true
+    }
+  }
 }
