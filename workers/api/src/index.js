@@ -1,4 +1,5 @@
 import { handleAuth } from "./auth.js";
+import { handleExamEngine } from "./exam-engine.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -221,6 +222,16 @@ export default {
         const responseHeaders = new Headers(authResponse.headers);
         for (const [key, value] of Object.entries(headers)) responseHeaders.set(key, value);
         return new Response(authResponse.body, { status: authResponse.status, headers: responseHeaders });
+      }
+    }
+
+    if (url.pathname.startsWith("/api/attempts")) {
+      if (!env.DB) return error("DATABASE_UNAVAILABLE", "D1 binding DB is unavailable", 503, headers);
+      const examResponse = await handleExamEngine(request, env, url);
+      if (examResponse) {
+        const responseHeaders = new Headers(examResponse.headers);
+        for (const [key, value] of Object.entries(headers)) responseHeaders.set(key, value);
+        return new Response(examResponse.body, { status: examResponse.status, headers: responseHeaders });
       }
     }
 
