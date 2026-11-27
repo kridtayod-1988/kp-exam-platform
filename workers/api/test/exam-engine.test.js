@@ -262,6 +262,47 @@ test("attempt results are isolated to the owning profile", async () => {
   assert.equal((await response.json()).error, "ATTEMPT_NOT_FOUND");
 });
 
+test("concurrent submissions award XP only once", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "in_progress",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22 12:00:00",
+      submitted_at: null,
+      score: null
+    }
+  });
+  const env = await makeEnv(DB);
+  const makeSubmitRequest = () => makeRequest(`/api/attempts/${ATTEMPT_ID}/submit`, {
+    method: "POST",
+    body: {
+      answers: [
+        { question_id: 1, selected_index: 1 },
+        { question_id: 2, selected_index: 0 }
+      ]
+    }
+  });
+  const responses = await Promise.all([
+    handleExamEngine(makeSubmitRequest(), env, new URL("https://api.example.test/api/attempts/" + ATTEMPT_ID + "/submit")),
+    handleExamEngine(makeSubmitRequest(), env, new URL("https://api.example.test/api/attempts/" + ATTEMPT_ID + "/submit"))
+  ]);
+  const payloads = await Promise.all(responses.map(response => response.json()));
+
+  assert.ok(responses.every(response => response.status === 200 || response.status === 409));
+  assert.equal(DB.state.attempt.status, "submitted");
+  assert.equal(DB.state.xp, 10);
+  assert.equal(DB.state.batchCalls, 1);
+  assert.equal(payloads.filter(payload => payload.data?.result?.score === 1).length, 2);
+  assert.match(DB.state.attempt.submitted_at, /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{13}Z$/);
+});
+
 test("repeated submission returns the saved result without recalculating or writing again", async () => {
   const rows = questions(10);
   const DB = makeDb({
