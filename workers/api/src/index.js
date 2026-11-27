@@ -1,5 +1,6 @@
 import { handleAuth } from "./auth.js";
 import { handleExamEngine } from "./exam-engine.js";
+import { handleAdmin } from "./admin.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -30,7 +31,7 @@ function corsHeaders(request, env) {
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-credentials": "true",
-    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
     "access-control-allow-headers": "content-type, authorization, x-csrf-token",
     "access-control-max-age": "600",
     "vary": "Origin"
@@ -235,10 +236,22 @@ export default {
       }
     }
 
+    if (url.pathname.startsWith("/api/admin")) {
+      if (!env.DB) return error("DATABASE_UNAVAILABLE", "D1 binding DB is unavailable", 503, headers);
+      try {
+        const adminResponse = await handleAdmin(request, env, url);
+        const responseHeaders = new Headers(adminResponse.headers);
+        for (const [key, value] of Object.entries(headers)) responseHeaders.set(key, value);
+        return new Response(adminResponse.body, { status: adminResponse.status, headers: responseHeaders });
+      } catch {
+        return error("INTERNAL_ERROR", "เกิดข้อผิดพลาดในการประมวลผล Admin API", 500, headers);
+      }
+    }
+
     if (request.method !== "GET") {
       return error("METHOD_NOT_ALLOWED", "รองรับเฉพาะ GET ใน Staging Phase 1", 405, {
         ...headers,
-        allow: "GET, POST, OPTIONS"
+        allow: "GET, POST, PATCH, OPTIONS"
       });
     }
 
