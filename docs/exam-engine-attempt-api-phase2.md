@@ -2,7 +2,7 @@
 
 ## Scope
 
-This implementation adds the first authenticated attempt lifecycle on the existing Cloudflare Workers + D1 stack. It reuses the existing Google OAuth session tables and the existing `user_attempts` / `user_answers` schema. It does not add or execute a database migration.
+This implementation adds the first authenticated attempt lifecycle on the existing Cloudflare Workers + D1 stack. It reuses the existing Google OAuth session tables and the existing `user_attempts` / `user_answers` schema. Migration `0006_user_seen_questions.sql` adds the per-profile Anti-Repeat history table; the migration is committed but must be applied only to Staging after the database change is approved.
 
 This work is preview-only. The API returns `EXAM_ENGINE_NOT_ENABLED` outside `APP_ENV=preview` or when `AUTH_ENABLED` is not `true`.
 
@@ -49,6 +49,9 @@ Only the owning authenticated profile can read the result. Answer keys, correctn
 - Attempt ownership is checked on every read and write.
 - The browser cannot select the authoritative question set.
 - The browser cannot submit a score or correct answer.
+- Question selection prefers unseen questions for the authenticated profile, then fills from previously seen questions when needed.
+- Successful submission atomically awards 10 XP per correct answer and records the entire question snapshot as seen in the same D1 batch as the submission claim; replayed submissions cannot award XP again.
+- XP uses the canonical `profiles.xp` column rather than introducing a second `exp` field.
 - Question preview and attempt APIs remain Preview-only.
 - Request body size is capped at 64 KiB.
 - Public create-attempt responses omit `correct_index` and `explanation`.
@@ -69,7 +72,8 @@ The repository CI workflow was updated to run on this feature branch. The CI res
 2. Add attempt history and pagination.
 3. Add server-enforced time limits and expiry policy for simulation mode.
 4. Add membership/plan entitlements when the membership schema is ready.
-5. Seed reviewed exam years, categories, and questions into Staging. Current Staging D1 read-only inspection found no exam-year or question records, so a live exam cannot yet be started.
+5. Apply Migration `0006_user_seen_questions.sql` to Staging and verify the migration record, foreign keys, and uniqueness constraints.
+6. Seed reviewed exam years, categories, and questions into Staging. Current Staging D1 read-only inspection found no exam-year or question records, so a live exam cannot yet be started.
 6. Complete live Staging OAuth + D1 end-to-end tests after verifying Worker secrets and approved content import.
 
 ## Deployment boundary
