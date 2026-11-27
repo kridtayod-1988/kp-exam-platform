@@ -10,9 +10,17 @@
 
   let csrfToken = "";
   let authenticated = false;
+  let currentProfile = null;
+
+  function notifyAuthState() {
+    window.dispatchEvent(new CustomEvent("kp-auth-state", {
+      detail: { authenticated, profile: currentProfile }
+    }));
+  }
 
   function renderGuest() {
     authenticated = false;
+    currentProfile = null;
     csrfToken = "";
     nameNode.textContent = "ผู้เยี่ยมชม";
     planNode.textContent = "Guest · ยังไม่ได้เข้าสู่ระบบ";
@@ -20,16 +28,19 @@
     action.hidden = false;
     action.textContent = "เข้าสู่ระบบ";
     action.setAttribute("aria-label", "เข้าสู่ระบบด้วย Google");
+    notifyAuthState();
   }
 
   function renderProfile(profile) {
     authenticated = true;
+    currentProfile = profile;
     nameNode.textContent = profile.display_name || profile.email || "สมาชิก";
     planNode.textContent = profile.role === "admin" ? "Admin · เข้าสู่ระบบแล้ว" : "User · เข้าสู่ระบบแล้ว";
     avatarNode.textContent = String(profile.display_name || profile.email || "U").trim().charAt(0).toUpperCase() || "U";
     action.hidden = false;
     action.textContent = "ออกจากระบบ";
     action.setAttribute("aria-label", "ออกจากระบบ");
+    notifyAuthState();
   }
 
   async function loadSession() {
@@ -100,6 +111,7 @@
 
   window.KP_AUTH = {
     get authenticated() { return authenticated; },
+    get profile() { return currentProfile; },
     get csrfToken() { return csrfToken; },
     refresh: loadSession
   };
