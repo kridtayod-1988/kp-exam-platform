@@ -239,7 +239,7 @@ async function loadResult(env, attempt) {
     score,
     total,
     percentage: total ? Math.round((score / total) * 10000) / 100 : 0,
-    xp_awarded: score * 10,
+    xp_earned: score * 10,
     started_at: attempt.started_at,
     submitted_at: attempt.submitted_at,
     questions
