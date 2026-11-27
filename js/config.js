@@ -7,7 +7,7 @@
     apiBaseUrl: isProduction
       ? 'https://kp-exam-api.kridtayod.workers.dev'
       : 'https://kp-exam-api-staging.kridtayod.workers.dev',
-    authEnabled: true,
+    authEnabled: !isProduction, // Keep Production login disabled until OAuth secrets and Worker bindings are verified.
     demoMode: false
   };
 })();
