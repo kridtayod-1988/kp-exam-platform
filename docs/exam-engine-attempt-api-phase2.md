@@ -2,9 +2,9 @@
 
 ## Scope
 
-This implementation adds the first authenticated attempt lifecycle on the existing Cloudflare Workers + D1 stack. It reuses the existing Google OAuth session tables and the existing `user_attempts` / `user_answers` schema. Migration `0006_user_seen_questions.sql` adds the per-profile Anti-Repeat history table; the migration is committed but must be applied only to Staging after the database change is approved.
+This implementation adds the first authenticated attempt lifecycle on the Cloudflare Workers + D1 stack. It reuses the Google OAuth session tables and the `user_attempts` / `user_answers` schema. Migration `0006_user_seen_questions.sql` adds per-profile Anti-Repeat history.
 
-This work is preview-only. The API returns `EXAM_ENGINE_NOT_ENABLED` outside `APP_ENV=preview` or when `AUTH_ENABLED` is not `true`.
+The attempt API remains Preview-only: it returns `EXAM_ENGINE_NOT_ENABLED` unless `APP_ENV=preview` and `AUTH_ENABLED=true`. This is an intentional deployment boundary; this PR does not enable attempt writes on Production.
 
 ## Endpoints
 
@@ -17,7 +17,7 @@ Request fields:
 - `question_count`: 10, 25, or 50
 - `mode`: `practice` only (defaults to `practice`; simulation remains disabled until time-limit enforcement is implemented)
 
-The Worker verifies the session and CSRF token, checks that the exam year is active, selects the question IDs on the server, applies a limit of 10 attempt starts per profile per hour, stores an immutable question-ID snapshot in `user_attempts`, and returns only public question fields. Answer keys and explanations are not included.
+The Worker verifies the session and CSRF token, checks that the exam year is active, selects question IDs on the server, applies a limit of 10 attempt starts per profile per hour, stores an immutable question-ID snapshot in `user_attempts`, and returns only public question fields. Answer keys and explanations are not included.
 
 ### Submit an attempt
 
@@ -34,7 +34,7 @@ Request:
 
 The Worker verifies ownership and attempt state, validates each question and selected option against the stored snapshot and D1 question rows, calculates the score from `questions.correct_index`, then atomically claims the in-progress attempt and writes submitted answers using D1 `batch()`.
 
-Unanswered questions count as incorrect. Repeated submissions return the already stored result instead of awarding another submission.
+Unanswered questions count as incorrect. Repeated submissions return the saved result instead of awarding XP again.
 
 ### Read a submitted result
 
@@ -47,24 +47,28 @@ Only the owning authenticated profile can read the result. Answer keys, correctn
 - Profile identity comes from the verified HttpOnly session cookie; no browser-supplied user ID is trusted.
 - Mutating requests require an exact allowlisted Origin and the session-bound CSRF header/cookie/hash.
 - Attempt ownership is checked on every read and write.
-- The browser cannot select the authoritative question set.
-- The browser cannot submit a score or correct answer.
+- The browser cannot select the authoritative question set or submit a score/correct answer.
 - Question selection prefers unseen questions for the authenticated profile, then fills from previously seen questions when needed.
-- Successful submission atomically awards 10 XP per correct answer and records the entire question snapshot as seen in the same D1 batch as the submission claim; replayed submissions cannot award XP again.
-- XP uses the canonical `profiles.xp` column rather than introducing a second `exp` field.
-- Question preview and attempt APIs remain Preview-only.
+- Successful submission atomically awards 10 XP per correct answer and records the question snapshot as seen in the same D1 batch as the submission claim; replayed submissions cannot award XP again.
+- XP uses the canonical `profiles.xp` column.
+- Attempt APIs remain Preview-only.
 - Request body size is capped at 64 KiB.
 - Public create-attempt responses omit `correct_index` and `explanation`.
 
-## Tests
+## Tests and current verification
 
-`workers/api/test/exam-engine.test.js` covers:
-- missing authentication
-- server-side question selection and answer-key redaction
-- question-count validation
-- server-side scoring and post-submit explanation visibility
+`workers/api/test/exam-engine.test.js` covers authentication, server-side question selection, answer-key redaction, question-count validation, server-side scoring, result ownership, and repeat-submission behavior.
 
-The repository CI workflow was updated to run on this feature branch. The CI result must be green before this branch is considered ready for Staging.
+- The latest recorded CI run for the current feature commit passed `npm test` and Wrangler Staging configuration dry-run.
+- The live Preview integration job was skipped in that run; CI success is not a live D1 end-to-end result.
+- Staging API deployment and health/database connectivity were previously verified. Staging year 2567 contains 50 original practice questions (not official exam questions).
+- Full live create-attempt → submit → result end-to-end testing through the frontend remains outstanding.
+
+## Migration status
+
+Migration `0006_user_seen_questions.sql` has been applied to both `kp_exam_platform_staging` and `kp_exam_platform_db` (Production). The Production D1 migration work was performed separately with a pre-change export and Time Travel bookmark; it is not an action performed by this PR.
+
+Production D1 now has the Auth and Exam Engine schema, but the Production question bank is empty. No Production API or Frontend Worker deployment has been performed, and the attempt API remains disabled outside Preview.
 
 ## Known follow-up work
 
@@ -72,10 +76,9 @@ The repository CI workflow was updated to run on this feature branch. The CI res
 2. Add attempt history and pagination.
 3. Add server-enforced time limits and expiry policy for simulation mode.
 4. Add membership/plan entitlements when the membership schema is ready.
-5. Apply Migration `0006_user_seen_questions.sql` to Staging and verify the migration record, foreign keys, and uniqueness constraints.
-6. Seed reviewed exam years, categories, and questions into Staging. Current Staging D1 read-only inspection found no exam-year or question records, so a live exam cannot yet be started.
-6. Complete live Staging OAuth + D1 end-to-end tests after verifying Worker secrets and approved content import.
+5. Complete live Staging OAuth + D1 create/submit/result end-to-end tests.
+6. Seed and review Production exam years, categories, and question content before Production exam use.
 
 ## Deployment boundary
 
-No Staging or Production migration was executed. No Worker or Pages deployment was performed. No Production D1 database was changed. The draft pull request targets `feat/auth-security-hardening` for review and has not been merged.
+This PR adds API code, tests, and the shared migration file. It does not deploy Production Workers or enable attempt writes on Production. Production D1 schema migration and Staging content seeding/deployment are separate operations documented independently.
