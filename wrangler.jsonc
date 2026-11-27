@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kp-exam-platform-staging",
+  "name": "kp-exam-platform",
   "compatibility_date": "2026-11-10",
   "observability": {
     "enabled": true
@@ -9,5 +9,11 @@
     "directory": ".",
     "not_found_handling": "single-page-application"
   },
-  "previews": {}
+  "previews": {},
+  "env": {
+    "staging": {
+      "name": "kp-exam-platform-staging",
+      "workers_dev": true
+    }
+  }
 }
