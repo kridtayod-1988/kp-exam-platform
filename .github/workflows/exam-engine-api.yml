@@ -7,11 +7,11 @@ on:
       - feat/auth-security-hardening
       - feat/d1-exam-engine-attempt-api
       - feat/auth-security-phase1-2
+      - feat/auth-security-phase3
     paths:
       - "workers/api/**"
       - "js/**"
       - "assets/**"
-      - "docs/**"
       - "index.html"
       - "_headers"
       - "wrangler.jsonc"
@@ -21,7 +21,6 @@ on:
       - "workers/api/**"
       - "js/**"
       - "assets/**"
-      - "docs/**"
       - "index.html"
       - "_headers"
       - "wrangler.jsonc"
@@ -41,10 +40,10 @@ jobs:
       - run: npm install
       - run: npm test
       - name: Validate non-auth branch Wrangler configuration without deploying
-        if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2' && github.ref != 'refs/heads/feat/d1-exam-engine-attempt-api' && github.head_ref != 'feat/d1-exam-engine-attempt-api'
+        if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2' && github.ref != 'refs/heads/feat/d1-exam-engine-attempt-api' && github.head_ref != 'feat/d1-exam-engine-attempt-api' && github.ref != 'refs/heads/feat/auth-security-phase3' && github.head_ref != 'feat/auth-security-phase3'
         run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
       - name: Validate isolated Auth Staging Wrangler configuration without deploying
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/feat/auth-security-phase1-2' || github.ref == 'refs/heads/feat/d1-exam-engine-attempt-api')) || (github.event_name == 'pull_request' && (github.head_ref == 'feat/auth-security-phase1-2' || github.head_ref == 'feat/d1-exam-engine-attempt-api'))
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/feat/auth-security-phase1-2' || github.ref == 'refs/heads/feat/d1-exam-engine-attempt-api' || github.ref == 'refs/heads/feat/auth-security-phase3')) || (github.event_name == 'pull_request' && (github.head_ref == 'feat/auth-security-phase1-2' || github.head_ref == 'feat/d1-exam-engine-attempt-api' || github.head_ref == 'feat/auth-security-phase3'))
         run: npx wrangler deploy --config wrangler.staging.jsonc --dry-run --outdir .wrangler-staging-dry-run
       - name: Run live Preview integration checks
         if: github.ref == 'refs/heads/feat/exam-engine-staging' || github.base_ref == 'feat/exam-engine-staging'
