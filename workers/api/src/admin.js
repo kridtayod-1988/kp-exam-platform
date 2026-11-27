@@ -219,7 +219,7 @@ async function updateQuestionStatus(request, env, questionId) {
 }
 
 export async function handleAdmin(request, env, url) {
-  if (env.APP_ENV !== "preview" || env.AUTH_ENABLED !== "true") {
+  if (env.ADMIN_API_ENABLED !== "true" || env.AUTH_ENABLED !== "true") {
     return fail("ADMIN_API_NOT_ENABLED", "Admin API ยังไม่เปิดใช้งานใน Environment นี้", 404);
   }
   const access = request.method === "GET"
