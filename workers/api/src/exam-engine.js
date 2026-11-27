@@ -312,7 +312,7 @@ async function submitAttempt(request, env, attemptId) {
   // A unique marker lets the conditional answer writes belong only to the
   // request that successfully claims this in-progress attempt.
   const randomFraction = crypto.getRandomValues(new Uint32Array(1))[0].toString().padStart(10, "0");
-  const submissionMarker = new Date().toISOString().replace(/(\\.\\d{3})Z$/, "$1" + randomFraction + "Z");
+  const submissionMarker = new Date().toISOString().replace(/(\.\d{3})Z$/, "$1" + randomFraction + "Z");
   const statements = [
     env.DB.prepare(
       `UPDATE user_attempts
