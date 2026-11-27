@@ -33,7 +33,10 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
     attempt,
     answers: new Map(),
     insertedAttempt: null,
-    batchCalls: 0
+    batchCalls: 0,
+    xp: 0,
+    seenQuestions: [],
+    queryLog: []
   };
   const sessionRow = {
     profile_id: "profile-1",
@@ -67,6 +70,7 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
           return null;
         },
         async all() {
+          state.queryLog.push(sql);
           if (sql.includes("ORDER BY RANDOM()")) return { results: state.questionRows };
           if (sql.includes("SELECT id, choices, correct_index")) return {
             results: state.questionRows.map(({ id, choices, correct_index }) => ({ id, choices, correct_index }))
@@ -111,8 +115,14 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
       state.attempt.score = claim.values[0];
       state.attempt.submitted_at = claim.values[1];
       for (const statement of writes) {
-        const [, questionId, selectedIndex] = statement.values;
-        state.answers.set(questionId, selectedIndex);
+        if (statement.sql.includes("INSERT INTO user_answers")) {
+          const [, questionId, selectedIndex] = statement.values;
+          state.answers.set(questionId, selectedIndex);
+        } else if (statement.sql.includes("UPDATE profiles")) {
+          state.xp += statement.values[0];
+        } else if (statement.sql.includes("INSERT INTO user_seen_questions")) {
+          state.seenQuestions = JSON.parse(statement.values[2]);
+        }
       }
       return statements.map(() => ({ success: true, meta: { changes: 1 } }));
     }
@@ -171,6 +181,7 @@ test("attempt creation selects questions server-side and hides answer keys", asy
   assert.equal(DB.state.insertedAttempt.user_id, "profile-1");
   assert.equal(JSON.stringify(payload).includes("correct_index"), false);
   assert.equal(JSON.stringify(payload).includes("private explanation"), false);
+  assert.ok(DB.state.queryLog.some(sql => sql.includes("user_seen_questions")));
 });
 
 test("attempt creation rejects unsupported question counts", async () => {
@@ -221,6 +232,9 @@ test("submission scores on the server and reveals explanations only after submit
   assert.equal(payload.data.result.questions[0].correct_index, 1);
   assert.equal(payload.data.result.questions[0].explanation, "private explanation");
   assert.equal(DB.state.attempt.status, "submitted");
+  assert.equal(DB.state.xp, 10);
+  assert.equal(DB.state.seenQuestions.length, 10);
+  assert.equal(payload.data.result.xp_earned, 10);
 });
 
 
