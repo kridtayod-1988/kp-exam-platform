@@ -39,6 +39,22 @@ test("preview D1/API and frontend CORS integration", { skip: !apiBase || !fronte
   const yearsBody = await years.json();
   assert.ok(Array.isArray(yearsBody.data?.exam_years));
 
+  const catalog = await fetchPreview("/api/catalog", {
+    headers: { Origin: frontendOrigin, Accept: "application/json" }
+  });
+  assert.equal(catalog.status, 200);
+  const catalogBody = await catalog.json();
+  assert.ok(Array.isArray(catalogBody.data?.subject_groups));
+  assert.ok(Array.isArray(catalogBody.data?.subcategories));
+  assert.ok(catalogBody.data.subcategories.length >= 20, "subject catalogue must expose the configured subjects");
+
+  const examSets = await fetchPreview("/api/exam-sets", {
+    headers: { Origin: frontendOrigin, Accept: "application/json" }
+  });
+  assert.equal(examSets.status, 200);
+  const examSetsBody = await examSets.json();
+  assert.ok(Array.isArray(examSetsBody.data?.exam_sets));
+
   const preflight = await fetchPreview("/api/exam-years", {
     method: "OPTIONS",
     headers: {
@@ -50,4 +66,37 @@ test("preview D1/API and frontend CORS integration", { skip: !apiBase || !fronte
   assert.equal(preflight.status, 204);
   assert.equal(preflight.headers.get("access-control-allow-origin"), frontendOrigin);
   assert.equal(preflight.headers.get("access-control-allow-credentials"), "true");
+
+  const history = await fetchPreview("/api/attempts", {
+    headers: { Origin: frontendOrigin, Accept: "application/json" }
+  });
+  assert.equal(history.status, 401, "attempt history must require an authenticated session");
+
+  const autosave = await fetchPreview("/api/attempts/00000000-0000-4000-8000-000000000001/answers", {
+    method: "PATCH",
+    headers: {
+      Origin: frontendOrigin,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ answers: [] })
+  });
+  assert.equal(autosave.status, 401, "answer autosave must require an authenticated session");
+
+  const appAssetUrl = new URL("/js/app.js?staging-smoke=" + Date.now(), frontendOrigin);
+  const appAsset = await fetch(appAssetUrl);
+  assert.equal(appAsset.status, 200, "Staging frontend must serve the updated application bundle");
+  const appSource = await appAsset.text();
+  assert.match(appSource, /queueAutosave/, "Staging frontend must include answer autosave");
+  assert.match(appSource, /resumeSavedAttempt/, "Staging frontend must include attempt resume");
+  assert.match(appSource, /start-mock/, "Staging frontend must include the Mock Exam entry point");
+  assert.match(appSource, /ฝึกสอบตามรายวิชา/);
+  assert.match(appSource, /คลังข้อสอบ/);
+  assert.match(appSource, /จำลองสนามจริง/);
+  assert.match(appSource, /body\.data\?\.exam_years/, "Frontend must parse the actual nested exam-year API envelope");
+  assert.match(appSource, /data-start-set/, "Frontend must render database-backed exam sets");
+  assert.doesNotMatch(appSource, /id="mock-year"|id="mock-count"/, "Exam-set catalogue must not render the old dropdown selectors");
+
+  const adapterAsset = await fetch(new URL("/js/exam-engine.js?staging-smoke=" + Date.now(), frontendOrigin));
+  assert.equal(adapterAsset.status, 200, "Staging frontend must serve the updated Exam Engine adapter");
+  assert.match(await adapterAsset.text(), /saveAnswers/, "Staging adapter must call the autosave API");
 });

@@ -17,6 +17,9 @@ on:
       - "index.html"
       - "_headers"
       - "wrangler.jsonc"
+      - "package.json"
+      - "scripts/**"
+      - ".gitignore"
       - ".github/workflows/exam-engine-api.yml"
   pull_request:
     paths:
@@ -26,6 +29,9 @@ on:
       - "index.html"
       - "_headers"
       - "wrangler.jsonc"
+      - "package.json"
+      - "scripts/**"
+      - ".gitignore"
       - ".github/workflows/exam-engine-api.yml"
 
 jobs:
@@ -40,7 +46,18 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Build isolated Staging frontend assets
+        run: node ../../scripts/build-staging-assets.mjs
+      - name: Validate Staging frontend Wrangler configuration without deploying
+        run: npx wrangler deploy --config ../../wrangler.jsonc --env staging --dry-run --outdir .wrangler-frontend-dry-run
       - run: npm test
+      - name: Validate frontend JavaScript syntax
+        run: node --check ../../js/app.js && node --check ../../js/exam-engine.js
+      - name: Run live Staging API integration checks
+        env:
+          API_PREVIEW_URL: https://kp-exam-api-staging.kridtayod.workers.dev
+          FRONTEND_PREVIEW_ORIGIN: https://kp-exam-platform-staging.kridtayod.workers.dev
+        run: npm run test:integration
       - name: Validate non-auth branch Wrangler configuration without deploying
         if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2' && github.ref != 'refs/heads/feat/d1-exam-engine-attempt-api' && github.head_ref != 'feat/d1-exam-engine-attempt-api' && github.ref != 'refs/heads/feat/auth-security-phase3' && github.head_ref != 'feat/auth-security-phase3' && github.ref != 'refs/heads/feat/admin-api-staging' && github.head_ref != 'feat/admin-api-staging' && github.ref != 'refs/heads/feat/admin-api-mainline' && github.head_ref != 'feat/admin-api-mainline'
         run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run

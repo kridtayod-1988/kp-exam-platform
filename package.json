@@ -2,11 +2,12 @@
   "name": "kp-exam-platform",
   "private": true,
   "scripts": {
-    "deploy:frontend": "wrangler deploy --env staging",
-    "deploy:frontend:staging": "wrangler deploy --env staging",
+    "deploy:frontend": "npm run build:staging-assets && wrangler deploy --env staging",
+    "deploy:frontend:staging": "npm run build:staging-assets && wrangler deploy --env staging",
     "deploy:frontend:production": "wrangler deploy",
-    "preview:frontend": "wrangler dev --env staging",
-    "preview:frontend:staging": "wrangler dev --env staging"
+    "preview:frontend": "npm run build:staging-assets && wrangler dev --env staging",
+    "preview:frontend:staging": "npm run build:staging-assets && wrangler dev --env staging",
+    "build:staging-assets": "node scripts/build-staging-assets.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.160.0"
