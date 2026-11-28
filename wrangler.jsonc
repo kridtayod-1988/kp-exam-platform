@@ -6,7 +6,7 @@
     "enabled": true
   },
   "assets": {
-    "directory": ".",
+    "directory": "./public",
     "not_found_handling": "single-page-application"
   },
   "previews": {},
@@ -15,7 +15,7 @@
       "name": "kp-exam-platform-staging",
       "workers_dev": true,
       "assets": {
-        "directory": ".",
+        "directory": "./public",
         "not_found_handling": "single-page-application"
       }
     }
