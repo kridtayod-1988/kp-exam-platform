@@ -27,10 +27,12 @@ function questions(count = 10) {
   }));
 }
 
-function makeDb({ questionRows = questions(), attempt = null } = {}) {
+function makeDb({ questionRows = questions(), attempt = null, examSet = null, subcategory = null } = {}) {
   const state = {
     questionRows,
     attempt,
+    examSet,
+    subcategory,
     answers: new Map(),
     insertedAttempt: null,
     batchCalls: 0,
@@ -66,6 +68,8 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
           if (sql.includes("SELECT COUNT(*) AS total FROM user_attempts")) return { total: state.attempt ? 1 : 0 };
           if (sql.includes("COUNT(CASE WHEN status")) return { completed_count: state.attempt?.status === "submitted" || state.attempt?.status === "expired" ? 1 : 0, average_percentage: 70, best_percentage: 70 };
           if (sql.includes("SELECT started_at, deadline_at FROM user_attempts")) return state.attempt;
+          if (sql.includes("FROM exam_sets")) return state.examSet;
+          if (sql.includes("FROM subcategories")) return state.subcategory;
           if (sql.includes("FROM exam_years")) return { id: 1, year_be: 2567, label: "พ.ศ. 2567" };
           if (sql.includes("FROM user_attempts") && sql.includes("WHERE id = ? AND user_id = ?")) {
             return state.attempt && state.attempt.id === values[0] && state.attempt.user_id === values[1]
@@ -102,12 +106,13 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
               id: values[0],
               user_id: values[1],
               exam_year_id: values[2],
-              question_count: values[3],
-              mode: values[4],
+              exam_set_id: values[3] ?? null,
+              question_count: values[4],
+              mode: values[5],
               status: "in_progress",
-              question_ids_json: values[5],
-              time_limit_seconds: values[6] ?? null,
-              deadline_at: values[6] ? "2026-11-22T13:00:00.000Z" : null,
+              question_ids_json: values[6],
+              time_limit_seconds: values[7] ?? null,
+              deadline_at: values[7] ? "2026-11-22T13:00:00.000Z" : null,
               started_at: "2026-11-22T12:00:00.000Z",
               submitted_at: null,
               score: null
@@ -575,4 +580,30 @@ test("Exam Engine can be enabled outside Preview only with both explicit flags",
   const response = await handleExamEngine(request, env, new URL(request.url));
   assert.equal(response.status, 401);
   assert.equal((await response.json()).error, "UNAUTHENTICATED");
+});
+
+test("attempt creation can be scoped to a database exam set and subject", async () => {
+  const rows = questions(10).map(row => ({ ...row, subcategory_id: "thai-analogy" }));
+  const DB = makeDb({
+    questionRows: rows,
+    examSet: { id: 9, exam_year_id: 1, title: "ก.พ. 2569 • ชุดเริ่มต้น" },
+    subcategory: { id: "thai-analogy" }
+  });
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts", {
+    method: "POST",
+    body: {
+      exam_set_id: 9,
+      subcategory_id: "thai-analogy",
+      question_count: 10,
+      mode: "simulation"
+    }
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  assert.equal(response.status, 200);
+  assert.equal(DB.state.insertedAttempt.exam_set_id, 9);
+  assert.equal(DB.state.insertedAttempt.question_count, 10);
+  assert.equal(DB.state.insertedAttempt.mode, "simulation");
+  assert.ok(DB.state.queryLog.some(sql => sql.includes("q.exam_set_id = ?")));
+  assert.ok(DB.state.queryLog.some(sql => sql.includes("q.subcategory_id = ?")));
 });
