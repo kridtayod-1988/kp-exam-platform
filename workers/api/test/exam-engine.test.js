@@ -553,3 +553,26 @@ test("attempt owner can resume and receive saved answers without answer keys", a
   assert.equal(JSON.stringify(payload).includes("correct_index"), false);
   assert.equal(JSON.stringify(payload).includes("private explanation"), false);
 });
+
+
+test("Exam Engine stays disabled unless its explicit environment flag is enabled", async () => {
+  const DB = makeDb();
+  const env = await makeEnv(DB);
+  env.EXAM_ENGINE_ENABLED = "false";
+  const request = new Request("https://api.example.test/api/exam-years");
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "EXAM_ENGINE_NOT_ENABLED");
+});
+
+test("Exam Engine can be enabled outside Preview only with both explicit flags", async () => {
+  const DB = makeDb();
+  const env = await makeEnv(DB);
+  env.APP_ENV = "production";
+  env.AUTH_ENABLED = "true";
+  env.EXAM_ENGINE_ENABLED = "true";
+  const request = makeRequest("/api/attempts");
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "UNAUTHENTICATED");
+});
