@@ -347,3 +347,140 @@ test("repeated submission returns the saved result without recalculating or writ
   assert.equal(payload.data.result.score, 7);
   assert.equal(DB.state.batchCalls, 0);
 });
+
+
+test("answer autosave persists validated answers for the owning in-progress attempt", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "in_progress",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22T12:00:00.000Z",
+      submitted_at: null,
+      score: null,
+      deadline_at: null,
+      time_limit_seconds: null
+    }
+  });
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts/" + ATTEMPT_ID + "/answers", {
+    method: "PATCH",
+    body: { answers: [{ question_id: 1, selected_index: 2 }] }
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.data.saved_count, 1);
+  assert.equal(DB.state.answers.get(1), 2);
+});
+
+test("answer autosave rejects an attempt owned by another profile", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "another-profile",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "in_progress",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22T12:00:00.000Z",
+      deadline_at: null
+    }
+  });
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts/" + ATTEMPT_ID + "/answers", {
+    method: "PATCH",
+    body: { answers: [{ question_id: 1, selected_index: 2 }] }
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "ATTEMPT_NOT_FOUND");
+});
+
+test("attempt history returns owner-scoped pagination and aggregate score report", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "submitted",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22T12:00:00.000Z",
+      submitted_at: "2026-11-22T12:05:00.000Z",
+      score: 7
+    }
+  });
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts?page=1&limit=10");
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.data.pagination.total, 1);
+  assert.equal(payload.data.summary.completed_count, 1);
+  assert.equal(payload.data.attempts[0].id, ATTEMPT_ID);
+});
+
+test("simulation attempts receive a server-generated sixty-minute deadline", async () => {
+  const DB = makeDb();
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts", {
+    method: "POST",
+    body: { exam_year_id: 1, question_count: 10, mode: "simulation" }
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  const payload = await response.json();
+  assert.equal(response.status, 201);
+  assert.equal(payload.data.attempt.mode, "simulation");
+  assert.equal(payload.data.attempt.time_limit_seconds, 3600);
+  assert.ok(payload.data.attempt.deadline_at);
+  assert.match(DB.state.attempt.deadline_at, /^2026-11-22T13:00:00/);
+});
+
+test("expired simulation is finalized from autosaved answers and cannot accept more answers", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "simulation",
+      status: "in_progress",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22T12:00:00.000Z",
+      deadline_at: "2020-01-01T00:00:00.000Z",
+      time_limit_seconds: 3600,
+      submitted_at: null,
+      score: null
+    }
+  });
+  DB.state.forceExpired = true;
+  DB.state.expiredScore = 1;
+  DB.state.answers.set(1, 1);
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts/" + ATTEMPT_ID + "/submit", {
+    method: "POST",
+    body: { answers: [] }
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.data.result.status, "expired");
+  assert.equal(payload.data.result.score, 1);
+  assert.equal(DB.state.xp, 10);
+  assert.equal(DB.state.attempt.status, "expired");
+});
