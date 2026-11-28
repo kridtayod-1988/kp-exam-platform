@@ -36,19 +36,23 @@
     <div class="section-head"><div><h3>ขั้นตอนการฝึก</h3><p>จากการเลือกชุดข้อสอบจนถึงการทบทวนผล</p></div></div>
     <div class="steps"><div class="step"><div class="step-num">1</div><b>เลือกปีสอบ</b><small>เลือกปีจากฐานข้อมูล</small></div><div class="step"><div class="step-num">2</div><b>กำหนดจำนวนข้อ</b><small>เลือก 10, 25 หรือ 50 ข้อ</small></div><div class="step"><div class="step-num">3</div><b>ทำข้อสอบ</b><small>ตอบคำถามและตรวจทาน</small></div><div class="step"><div class="step-num">4</div><b>ดูผลสอบ</b><small>คะแนนและหัวข้อทบทวน</small></div></div>
     <div class="alert info">หมายเหตุ: หน้านี้เชื่อม API สำหรับโหลดปีสอบแล้ว ส่วนการสร้างชุดข้อสอบ บันทึกคำตอบ และตรวจคะแนนต้องเชื่อม Exam Engine ฝั่ง Server ก่อนเปิดใช้งาน</div>`;}
-  function mock(){return intro('Mock Exam','ฝึกบริหารเวลาและประเมินความพร้อมก่อนวันสอบ')+`
-    <div class="subject-grid">
-      <article class="panel subject"><span class="badge">รูปแบบมาตรฐาน</span><h3>Mock Exam ภาค ก.</h3><p>ชุดสอบจำลองรวมทุกวิชาตามโครงสร้างที่กำหนด พร้อมเวลาสอบและสรุปคะแนน</p><div class="subject-meta"><span>Full simulation</span><span>เตรียมระบบ</span></div></article>
-      <article class="panel subject"><span class="badge gray">โหมดฝึก</span><h3>ฝึกแบบไม่จับเวลา</h3><p>ทำข้อสอบตามจังหวะของตนเองและทบทวนคำอธิบายหลังตอบ</p><div class="subject-meta"><span>Practice mode</span><span>เตรียมระบบ</span></div></article>
-      <article class="panel subject"><span class="badge gray">การประเมิน</span><h3>ทดสอบความพร้อม</h3><p>สรุปผลแยกตามวิชาเพื่อวางแผนการอ่านในรอบถัดไป</p><div class="subject-meta"><span>Readiness report</span><span>เตรียมระบบ</span></div></article>
-    </div><div class="alert">หน้าจอและโครงสร้าง UX พร้อมแล้ว แต่ยังไม่สามารถเริ่มสอบได้จนกว่าจะเชื่อมชุดข้อสอบ ระบบจับเวลา และการตรวจคะแนนฝั่ง Server</div>`;}
+  function mock(){return intro('Mock Exam','ฝึกบริหารเวลาและประเมินความพร้อมก่อนวันสอบ')+\`
+    <section class="panel form-panel"><div class="panel-head"><div><h3>ตั้งค่าการสอบจำลอง</h3><p>ระบบจะกำหนดเวลาสอบจากฝั่ง Server และบันทึกคำตอบอัตโนมัติ</p></div><span class="badge">จับเวลา 60 นาที</span></div>
+      <div class="form-grid"><div class="field"><label for="mock-year">ปีข้อสอบ</label><select id="mock-year"><option value="">เลือกปีข้อสอบ</option>\${years.map(y=>\`<option value="\${esc(y.id)}">\${esc(y.label)}</option>\`).join('')}</select></div>
+      <div class="field"><label for="mock-count">จำนวนข้อ</label><select id="mock-count"><option value="50" selected>50 ข้อ</option><option value="25">25 ข้อ</option><option value="10">10 ข้อ</option></select></div></div>
+      <div class="form-actions"><button class="btn" id="start-mock" \${years.length?'':'disabled'}>เริ่ม Mock Exam</button><span class="hint">เวลาสอบ 60 นาที • บันทึกคำตอบทุกครั้งที่เลือก</span></div>
+    </section>
+    <div class="subject-grid"><article class="panel subject"><span class="badge">Server timer</span><h3>จับเวลาจริง</h3><p>กำหนดเวลาสิ้นสุดจากฐานข้อมูล ไม่เชื่อเวลาที่ส่งมาจากเบราว์เซอร์</p></article>
+    <article class="panel subject"><span class="badge gray">Autosave</span><h3>บันทึกคำตอบ</h3><p>คำตอบจะถูกบันทึกระหว่างทำข้อสอบ และนำไปคิดคะแนนเมื่อหมดเวลา</p></article>
+    <article class="panel subject"><span class="badge gray">Report</span><h3>รายงานผลสอบ</h3><p>ดูคะแนนย้อนหลัง สถานะการสอบ และค่าเฉลี่ยจากบัญชีของคุณ</p></article></div>
+    <div class="alert info">Mock Exam ใช้ชุดข้อสอบที่เปิดใช้งานในฐานข้อมูล Staging/Production ตามแหล่งข้อมูลที่ได้รับการตรวจสอบ</div>\`;}
   function bank(){const subjects=[['คิดวิเคราะห์','การคิดวิเคราะห์เชิงภาษา นามธรรม และเชิงปริมาณ','∑'],['ภาษาอังกฤษ','คำศัพท์ ไวยากรณ์ และการอ่านจับใจความ','A'],['ความรู้และลักษณะการเป็นข้าราชการที่ดี','กฎหมาย ระเบียบ และหลักการบริหารราชการ','§']];return intro('คลังข้อสอบ','เลือกวิชาและหมวดหมู่เพื่อวางแผนทบทวน')+`
     <div class="subject-grid">${subjects.map(s=>`<article class="panel subject"><div class="feature-icon">${s[2]}</div><span class="badge gray">หมวดวิชาหลัก</span><h3>${s[0]}</h3><p>${s[1]}</p><div class="subject-meta"><span>รายการข้อสอบ</span><span>รอเชื่อมฐานข้อมูล</span></div></article>`).join('')}</div>
     <div class="alert info">หมวดวิชาเป็นโครงสร้าง UX เบื้องต้น รายการวิชาและจำนวนข้อจริงจะดึงจากฐานข้อมูลเมื่อ API คลังข้อสอบพร้อมใช้งาน</div>`;}
-  function results(){return intro('ผลการสอบ','ดูคะแนนย้อนหลัง วิเคราะห์ผลรายวิชา และวางแผนทบทวน')+`
-    <div class="stats"><article class="stat"><div class="stat-top">คะแนนเฉลี่ย <span class="stat-icon">◉</span></div><div class="stat-value">—</div><div class="stat-foot">ยังไม่มีผลสอบ</div></article><article class="stat"><div class="stat-top">คะแนนสูงสุด <span class="stat-icon">↗</span></div><div class="stat-value">—</div><div class="stat-foot">รอการบันทึกผล</div></article><article class="stat"><div class="stat-top">จำนวนครั้งที่สอบ <span class="stat-icon">▤</span></div><div class="stat-value">0</div><div class="stat-foot">ทุกโหมดการสอบ</div></article><article class="stat"><div class="stat-top">หัวข้อที่ควรทบทวน <span class="stat-icon">◎</span></div><div class="stat-value">—</div><div class="stat-foot">รอข้อมูลวิเคราะห์</div></article></div>
-    <div class="result-grid"><section class="panel">${panelHead('แนวโน้มคะแนน','กราฟคะแนนจากการสอบแต่ละครั้ง')}<div class="empty"><strong>ยังไม่มีข้อมูลกราฟ</strong>คะแนนจะแสดงหลังส่งข้อสอบสำเร็จ</div></section><section class="panel">${panelHead('วิเคราะห์ผลรายวิชา','จุดแข็งและหัวข้อที่ควรพัฒนา')}<div class="empty"><strong>ยังไม่มีข้อมูลวิเคราะห์</strong>ระบบจะสรุปผลเมื่อมีประวัติการสอบ</div></section></div>
-    <div class="section-head"><div><h3>ประวัติการสอบ</h3><p>รายการสอบทั้งหมดของบัญชีนี้</p></div></div><div class="panel"><div class="empty"><strong>ไม่พบประวัติการสอบ</strong>เริ่มฝึกข้อสอบเพื่อสร้างประวัติของคุณ</div></div>`;}
+  function results(){return intro('ผลการสอบ','ดูคะแนนย้อนหลัง วิเคราะห์ผลรายวิชา และวางแผนทบทวน')+
+    '<div id="results-summary" class="stats"><div class="panel">กำลังโหลดสรุปผลการสอบ…</div></div>'+
+    '<div class="section-head"><div><h3>ประวัติการสอบ</h3><p>แสดงเฉพาะประวัติของบัญชีที่เข้าสู่ระบบ</p></div></div>'+
+    '<div id="history-panel" class="panel"><div class="empty">กำลังโหลดประวัติการสอบ…</div></div>';}
   function memberRoleMarkup(){const profile=window.KP_AUTH?.profile;const role=profile?.role;if(role==='admin')return '<span id="member-role-badge" class="badge">Admin</span>';if(window.KP_AUTH?.authenticated&&role==='user')return '<span id="member-role-badge" class="badge gray">User</span>';return '<span id="member-role-badge" class="badge gray">Guest</span>';}
   function member(){return intro('สมาชิกและแพ็กเกจ','จัดการบัญชี ตรวจสอบสิทธิ์ และดูแพ็กเกจการใช้งาน')+`
     <section class="panel"><div class="panel-head"><div><h3>ข้อมูลบัญชี</h3><p>สถานะการเข้าสู่ระบบปัจจุบัน</p></div>${memberRoleMarkup()}</div><div class="alert">เข้าสู่ระบบด้วย Google ได้จากปุ่มด้านบนของหน้าเว็บ เมื่อเข้าสู่ระบบสำเร็จ ชื่อและบทบาทของบัญชีจะแสดงบริเวณมุมขวาบน</div></section>
@@ -58,27 +62,81 @@
     <article class="plan"><span class="badge gray">สำหรับองค์กร</span><h3>Enterprise</h3><div class="plan-price">ติดต่อ</div><p>เครื่องมือสำหรับการจัดการผู้เรียนเป็นกลุ่ม</p><ul><li>จัดการสมาชิกและสิทธิ์</li><li>รายงานภาพรวมองค์กร</li></ul><button class="btn outline" disabled>ยังไม่เปิดให้บริการ</button></article></div>`;}
   const views={dashboard,'by-year':byYear,mock,bank,results,member};
   function closeMenu(){sidebar.classList.remove('open');scrim.classList.remove('show');}
-  function show(key){if(!views[key])key='dashboard';root.innerHTML=views[key]();document.getElementById('page-title').textContent=titles[key];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===key));closeMenu();if(key==='by-year'&&!years.length){fetchYears().then(list=>{years=list;root.innerHTML=byYear();}).catch(err=>{const alert=document.getElementById('year-alert');if(alert)alert.textContent='ไม่สามารถโหลดปีข้อสอบจาก API ได้ในขณะนี้ ('+err.message+') กรุณาตรวจสอบ API แล้วลองใหม่';});}}
+  function show(key){if(!views[key])key='dashboard';root.innerHTML=views[key]();document.getElementById('page-title').textContent=titles[key];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===key));closeMenu();if((key==='by-year'||key==='mock')&&!years.length){fetchYears().then(list=>{years=list;root.innerHTML=views[key]();}).catch(err=>notify('โหลดปีข้อสอบไม่สำเร็จ: '+err.message));}if(key==='results')loadResults(1).catch(err=>{const panel=document.getElementById('history-panel');if(panel)panel.textContent='โหลดประวัติไม่สำเร็จ: '+err.message;});}
   document.getElementById('main-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)show(b.dataset.view);});
   window.addEventListener('kp-auth-state',event=>{const badge=document.getElementById('member-role-badge');if(!badge)return;const profile=event.detail?.profile;const role=profile?.role;if(!event.detail?.authenticated){badge.textContent='Guest';badge.className='badge gray';return;}badge.textContent=role==='admin'?'Admin':'User';badge.className=role==='admin'?'badge':'badge gray';});
 
-  let activeAttempt=null;
-  let attemptAnswers={};
-  let currentQuestionIndex=0;
-  let submitting=false;
   function renderAttempt(){
     if(!activeAttempt)return;
     const q=activeAttempt.questions[currentQuestionIndex];
     const selected=attemptAnswers[String(q.id)];
-    root.innerHTML=`<div class="exam-toolbar"><button class="btn soft small" id="exit-attempt">กลับหน้าฝึก</button><span class="badge">กำลังทำข้อสอบ</span><span class="exam-progress">ข้อ ${currentQuestionIndex+1} / ${activeAttempt.questions.length}</span></div>
-      <div class="exam-progress-track"><span style="width:${((currentQuestionIndex+1)/activeAttempt.questions.length)*100}%"></span></div>
-      <section class="panel exam-panel"><div class="exam-question-meta"><span>${q.subject?esc(q.subject):'ข้อสอบ ก.พ.'}</span><span>ข้อที่ ${currentQuestionIndex+1}</span></div>
-      ${q.passage?`<div class="exam-passage">${esc(q.passage)}</div>`:''}
-      <h2 class="exam-question">${esc(q.questionText)}</h2>
-      <div class="exam-choices">${q.choices.map((choice,i)=>`<label class="exam-choice ${selected===i?'selected':''}"><input type="radio" name="exam-answer" value="${i}" ${selected===i?'checked':''}><span class="choice-key">${String.fromCharCode(65+i)}</span><span>${esc(choice)}</span></label>`).join('')}</div>
-      <div class="exam-actions"><button class="btn soft" id="prev-question" ${currentQuestionIndex===0?'disabled':''}>ข้อก่อนหน้า</button><span class="hint">ตอบแล้ว ${Object.keys(attemptAnswers).length} / ${activeAttempt.questions.length} ข้อ</span>${currentQuestionIndex<activeAttempt.questions.length-1?'<button class="btn" id="next-question">ข้อต่อไป</button>':'<button class="btn" id="review-submit">ตรวจทานและส่งข้อสอบ</button>'}</div></section>
-      <div class="exam-number-grid">${activeAttempt.questions.map((item,i)=>`<button class="question-number ${i===currentQuestionIndex?'current':''} ${attemptAnswers[String(item.id)]!==undefined?'answered':''}" data-question-index="${i}" aria-label="ไปข้อที่ ${i+1}">${i+1}</button>`).join('')}</div>
-      <p class="hint">คำตอบจะเก็บไว้ชั่วคราวในหน้านี้ และจะส่งไปตรวจคะแนนเมื่อกดส่งข้อสอบ</p>`;
+    const remaining=activeAttempt.deadlineAt?Math.max(0,Math.ceil((Date.parse(activeAttempt.deadlineAt)-Date.now())/1000)):null;
+    const clock=remaining===null?'ไม่จำกัดเวลา':String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');
+    const saveLabel=autosaveState==='saving'?'กำลังบันทึก…':autosaveState==='pending'?'รอบันทึก…':autosaveState==='error'?'บันทึกไม่สำเร็จ':'บันทึกแล้ว';
+    root.innerHTML=\`<div class="exam-toolbar"><button class="btn soft small" id="exit-attempt">ออกจากข้อสอบ</button><span class="badge">\${activeAttempt.mode==='simulation'?'Mock Exam':'กำลังทำข้อสอบ'}</span><span class="exam-progress">ข้อ \${currentQuestionIndex+1} / \${activeAttempt.questions.length}</span><strong id="exam-clock" class="badge">\${clock}</strong></div>
+      <div class="exam-progress-track"><span style="width:\${((currentQuestionIndex+1)/activeAttempt.questions.length)*100}%"></span></div>
+      <section class="panel exam-panel"><div class="exam-question-meta"><span>\${q.subject?esc(q.subject):'ข้อสอบ ก.พ.'}</span><span>ข้อที่ \${currentQuestionIndex+1}</span></div>
+      \${q.passage?\`<div class="exam-passage">\${esc(q.passage)}</div>\`:''}
+      <h2 class="exam-question">\${esc(q.questionText)}</h2>
+      <div class="exam-choices">\${q.choices.map((choice,i)=>\`<label class="exam-choice \${selected===i?'selected':''}"><input type="radio" name="exam-answer" value="\${i}" \${selected===i?'checked':''}><span class="choice-key">\${String.fromCharCode(65+i)}</span><span>\${esc(choice)}</span></label>\`).join('')}</div>
+      <div class="exam-actions"><button class="btn soft" id="prev-question" \${currentQuestionIndex===0?'disabled':''}>ข้อก่อนหน้า</button><span class="hint">ตอบแล้ว \${Object.keys(attemptAnswers).length} / \${activeAttempt.questions.length} ข้อ</span>\${currentQuestionIndex<activeAttempt.questions.length-1?'<button class="btn" id="next-question">ข้อต่อไป</button>':'<button class="btn" id="review-submit">ตรวจทานและส่งข้อสอบ</button>'}</div></section>
+      <div class="exam-number-grid">\${activeAttempt.questions.map((item,i)=>\`<button class="question-number \${i===currentQuestionIndex?'current':''} \${attemptAnswers[String(item.id)]!==undefined?'answered':''}" data-question-index="\${i}" aria-label="ไปข้อที่ \${i+1}">\${i+1}</button>\`).join('')}</div>
+      <p class="hint">สถานะคำตอบ: <strong id="autosave-status">\${saveLabel}</strong> • ระบบบันทึกคำตอบไปยัง Server อัตโนมัติ</p>\`;
+  }
+  function currentAnswers(){
+    return activeAttempt.questions.filter(q=>attemptAnswers[String(q.id)]!==undefined)
+      .map(q=>({questionId:q.id,selectedIndex:attemptAnswers[String(q.id)]}));
+  }
+  function queueAutosave(){
+    if(!activeAttempt)return;
+    clearTimeout(autosaveTimer);
+    autosaveState='pending';
+    renderAttempt();
+    const sequence=++autosaveSequence;
+    autosaveTimer=setTimeout(async()=>{
+      if(!activeAttempt)return;
+      autosaveState='saving';renderAttempt();
+      try{
+        await window.KP_EXAM_ENGINE.saveAnswers(activeAttempt.id,currentAnswers());
+        if(sequence===autosaveSequence){autosaveState='saved';renderAttempt();}
+      }catch(error){
+        if(sequence===autosaveSequence){autosaveState='error';renderAttempt();notify(error.message||'บันทึกคำตอบไม่สำเร็จ');}
+      }
+    },450);
+  }
+  function startCountdown(){
+    clearInterval(countdownTimer);
+    if(!activeAttempt?.deadlineAt)return;
+    countdownTimer=setInterval(()=>{
+      if(!activeAttempt)return clearInterval(countdownTimer);
+      const remaining=Math.max(0,Math.ceil((Date.parse(activeAttempt.deadlineAt)-Date.now())/1000));
+      const clock=document.getElementById('exam-clock');
+      if(clock)clock.textContent=String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');
+      if(remaining<=0){clearInterval(countdownTimer);submitAttempt(true);}
+    },1000);
+  }
+  async function loadResults(page=1){
+    const panel=document.getElementById('history-panel');
+    const summary=document.getElementById('results-summary');
+    if(!panel||!summary)return;
+    if(!window.KP_AUTH?.authenticated){panel.innerHTML='<div class="empty"><strong>กรุณาเข้าสู่ระบบ</strong>ประวัติการสอบจะแสดงเฉพาะบัญชีที่เข้าสู่ระบบ</div>';return;}
+    panel.innerHTML='<div class="empty">กำลังโหลดประวัติการสอบ…</div>';
+    const data=await window.KP_EXAM_ENGINE.getHistory({page,limit:20});
+    const stats=data.summary||{};
+    summary.innerHTML=[
+      ['คะแนนเฉลี่ย',stats.average_percentage==null?'—':Number(stats.average_percentage).toFixed(1)+'%'],
+      ['คะแนนสูงสุด',stats.best_percentage==null?'—':Number(stats.best_percentage).toFixed(1)+'%'],
+      ['จำนวนครั้งที่สอบ',stats.total_attempts||0],
+      ['สอบเสร็จแล้ว',stats.completed_count||0]
+    ].map(([label,value])=>'<article class="stat"><div class="stat-top">'+label+'</div><div class="stat-value">'+esc(value)+'</div></article>').join('');
+    const rows=(data.attempts||[]).map(item=>{
+      const status=item.status==='submitted'?'ส่งแล้ว':item.status==='expired'?'หมดเวลา': 'กำลังทำ';
+      const mode=item.mode==='simulation'?'Mock Exam':'ฝึกทั่วไป';
+      const score=item.score==null?'—':item.score+' / '+item.question_count;
+      const percent=item.percentage==null?'—':Number(item.percentage).toFixed(1)+'%';
+      return '<tr><td>'+esc(item.exam_year_label||('ปีสอบ #'+item.exam_year_id))+'</td><td>'+esc(mode)+'</td><td>'+esc(score)+'</td><td>'+esc(percent)+'</td><td>'+esc(status)+'</td><td>'+esc(item.started_at||'')+'</td></tr>';
+    }).join('');
+    panel.innerHTML=rows?'<div class="table-wrap"><table><thead><tr><th>ปีสอบ</th><th>รูปแบบ</th><th>คะแนน</th><th>เปอร์เซ็นต์</th><th>สถานะ</th><th>เริ่มสอบ</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="form-actions"><button class="btn soft small" data-history-page="'+(page-1)+'" '+(page<=1?'disabled':'')+'>ก่อนหน้า</button><span class="hint">หน้า '+page+' / '+(data.pagination?.total_pages||1)+'</span><button class="btn soft small" data-history-page="'+(page+1)+'" '+(page>=(data.pagination?.total_pages||1)?'disabled':'')+'>ถัดไป</button></div>':'<div class="empty"><strong>ไม่พบประวัติการสอบ</strong>เริ่มฝึกข้อสอบเพื่อสร้างประวัติของคุณ</div>';
   }
   async function beginAttempt(){
     const year=document.getElementById('exam-year')?.value;
