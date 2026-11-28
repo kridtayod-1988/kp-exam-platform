@@ -92,9 +92,28 @@
     });
   }
 
+  async function resumeAttempt(attemptId) {
+    const data = await request('/api/attempts/' + encodeURIComponent(attemptId));
+    const attempt = data.attempt || {};
+    const rawQuestions = data.questions || [];
+    if (!attempt.id || !rawQuestions.length) throw new Error('ไม่พบข้อมูลชุดข้อสอบที่กลับมาทำต่อ');
+    return {
+      id: attempt.id,
+      mode: attempt.mode || 'practice',
+      examYearLabel: attempt.exam_year_label || '',
+      startedAt: attempt.started_at || '',
+      deadlineAt: attempt.deadline_at || null,
+      timeLimitSeconds: attempt.time_limit_seconds ?? null,
+      questions: rawQuestions.map(raw => ({
+        ...normalizeQuestion(raw),
+        selectedIndex: raw.selected_index ?? null
+      }))
+    };
+  }
+
   async function getHistory({ page = 1, limit = 20 } = {}) {
     return request('/api/attempts?page=' + encodeURIComponent(page) + '&limit=' + encodeURIComponent(limit));
   }
 
-  window.KP_EXAM_ENGINE = { startAttempt, saveAnswers, submitAttempt, getHistory };
+  window.KP_EXAM_ENGINE = { startAttempt, resumeAttempt, saveAnswers, submitAttempt, getHistory };
 })();
