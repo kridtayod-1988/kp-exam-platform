@@ -17,6 +17,9 @@ on:
       - "index.html"
       - "_headers"
       - "wrangler.jsonc"
+      - "package.json"
+      - "scripts/**"
+      - ".gitignore"
       - ".github/workflows/exam-engine-api.yml"
   pull_request:
     paths:
@@ -40,6 +43,10 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Build isolated Staging frontend assets
+        run: node ../../scripts/build-staging-assets.mjs
+      - name: Validate Staging frontend Wrangler configuration without deploying
+        run: npx wrangler deploy --config ../../wrangler.jsonc --env staging --dry-run --outdir .wrangler-frontend-dry-run
       - run: npm test
       - name: Validate frontend JavaScript syntax
         run: node --check ../../js/app.js && node --check ../../js/exam-engine.js
