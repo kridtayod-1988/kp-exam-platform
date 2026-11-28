@@ -13,7 +13,11 @@
   "env": {
     "staging": {
       "name": "kp-exam-platform-staging",
-      "workers_dev": true
+      "workers_dev": true,
+      "assets": {
+        "directory": ".",
+        "not_found_handling": "single-page-application"
+      }
     }
   }
 }
