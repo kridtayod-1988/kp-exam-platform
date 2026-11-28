@@ -380,6 +380,64 @@ async function saveAttemptAnswers(request, env, attemptId) {
   return json({ data: { attempt_id: attemptId, saved_count: answers.length, saved_at: new Date().toISOString() } });
 }
 
+
+async function resumeAttempt(env, attemptId, profileId) {
+  if (!/^[0-9a-f-]{36}$/i.test(attemptId)) {
+    return fail("INVALID_ATTEMPT_ID", "รหัสชุดข้อสอบไม่ถูกต้อง", 400);
+  }
+  let attempt = await loadOwnedAttempt(env, attemptId, profileId);
+  if (!attempt) return fail("ATTEMPT_NOT_FOUND", "ไม่พบชุดข้อสอบนี้", 404);
+  if (attempt.status !== "in_progress") {
+    return fail("ATTEMPT_NOT_ACTIVE", "ชุดข้อสอบนี้ไม่อยู่ในสถานะที่กลับมาทำต่อได้", 409);
+  }
+  if (attempt.deadline_at) {
+    attempt = await expireAttempt(env, attempt);
+    if (attempt?.status === "expired") {
+      return fail("ATTEMPT_EXPIRED", "ชุดข้อสอบหมดเวลาแล้ว", 409);
+    }
+  }
+  const ids = parseIdSnapshot(attempt.question_ids_json);
+  if (!ids || ids.length !== attempt.question_count) {
+    return fail("ATTEMPT_QUESTION_SNAPSHOT_INVALID", "ข้อมูลชุดข้อสอบไม่ถูกต้อง", 500);
+  }
+  const placeholders = ids.map(() => "?").join(",");
+  const result = await env.DB.prepare(
+    "SELECT q.id, q.question_text, q.passage, q.choices, q.difficulty, " +
+    "q.subcategory_id, sc.name AS subject_name, ua.selected_index " +
+    "FROM questions q LEFT JOIN subcategories sc ON sc.id = q.subcategory_id " +
+    "LEFT JOIN user_answers ua ON ua.attempt_id = ? AND ua.question_id = q.id " +
+    "WHERE q.id IN (" + placeholders + ")"
+  ).bind(attempt.id, ...ids).all();
+  const byId = new Map((result.results || []).map(row => [row.id, row]));
+  if (byId.size !== ids.length) {
+    return fail("ATTEMPT_QUESTION_MISSING", "ข้อสอบบางข้อไม่พร้อมใช้งานแล้ว", 409);
+  }
+  return json({ data: {
+    attempt: {
+      id: attempt.id,
+      exam_year_id: attempt.exam_year_id,
+      question_count: attempt.question_count,
+      mode: attempt.mode,
+      started_at: attempt.started_at,
+      time_limit_seconds: attempt.time_limit_seconds ?? null,
+      deadline_at: attempt.deadline_at ?? null
+    },
+    questions: ids.map(id => {
+      const row = byId.get(id);
+      return {
+        id: row.id,
+        question_text: row.question_text,
+        passage: row.passage ?? null,
+        choices: parseChoices(row.choices),
+        difficulty: row.difficulty ?? null,
+        subcategory_id: row.subcategory_id ?? null,
+        subject_name: row.subject_name ?? null,
+        selected_index: row.selected_index ?? null
+      };
+    })
+  } });
+}
+
 async function getAttemptHistory(env, profileId, url) {
   const page = Number(url.searchParams.get("page") || 1);
   const limit = Number(url.searchParams.get("limit") || 20);
@@ -581,6 +639,12 @@ export async function handleExamEngine(request, env, url) {
       const session = await getAuthenticatedSession(request, env);
       if (!session) return fail("UNAUTHENTICATED", "กรุณาเข้าสู่ระบบเพื่อดูประวัติการสอบ", 401);
       return await getAttemptHistory(env, session.profile_id, url);
+    }
+    const resumeMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)$"));
+    if (request.method === "GET" && resumeMatch) {
+      const session = await getAuthenticatedSession(request, env);
+      if (!session) return fail("UNAUTHENTICATED", "กรุณาเข้าสู่ระบบเพื่อกลับมาทำข้อสอบ", 401);
+      return await resumeAttempt(env, decodeURIComponent(resumeMatch[1]), session.profile_id);
     }
     if (request.method === "POST" && url.pathname === "/api/attempts") {
       return await startAttempt(request, env);
