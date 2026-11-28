@@ -233,6 +233,7 @@
       if(window.confirm('ออกจากข้อสอบหรือไม่? ระบบจะบันทึกคำตอบล่าสุดก่อนออก และสามารถกลับมาทำต่อจากประวัติการสอบได้')){
         clearTimeout(autosaveTimer);autosaveQueued=false;autosaveSequence++;
         try{
+          while(autosaveInFlight)await new Promise(resolve=>setTimeout(resolve,25));
           await window.KP_EXAM_ENGINE.saveAnswers(activeAttempt.id,currentAnswers());
           clearInterval(countdownTimer);activeAttempt=null;attemptAnswers={};show('results');
         }catch(error){
