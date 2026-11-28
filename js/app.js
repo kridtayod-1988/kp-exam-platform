@@ -138,18 +138,19 @@
     }).join('');
     panel.innerHTML=rows?'<div class="table-wrap"><table><thead><tr><th>ปีสอบ</th><th>รูปแบบ</th><th>คะแนน</th><th>เปอร์เซ็นต์</th><th>สถานะ</th><th>เริ่มสอบ</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="form-actions"><button class="btn soft small" data-history-page="'+(page-1)+'" '+(page<=1?'disabled':'')+'>ก่อนหน้า</button><span class="hint">หน้า '+page+' / '+(data.pagination?.total_pages||1)+'</span><button class="btn soft small" data-history-page="'+(page+1)+'" '+(page>=(data.pagination?.total_pages||1)?'disabled':'')+'>ถัดไป</button></div>':'<div class="empty"><strong>ไม่พบประวัติการสอบ</strong>เริ่มฝึกข้อสอบเพื่อสร้างประวัติของคุณ</div>';
   }
-  async function beginAttempt(){
-    const year=document.getElementById('exam-year')?.value;
-    const count=Number(document.getElementById('question-count')?.value||10);
-    if(!year){notify('กรุณาเลือกปีข้อสอบ');return;}
-    const button=document.getElementById('start-practice');
-    if(button){button.disabled=true;button.textContent='กำลังเตรียมข้อสอบ…';}
+  async function beginAttempt(mode="practice"){
+    const simulation=mode==="simulation";
+    const year=document.getElementById(simulation?"mock-year":"exam-year")?.value;
+    const count=Number(document.getElementById(simulation?"mock-count":"question-count")?.value||(simulation?50:10));
+    if(!year){notify("กรุณาเลือกปีข้อสอบ");return;}
+    const button=document.getElementById(simulation?"start-mock":"start-practice");
+    if(button){button.disabled=true;button.textContent="กำลังเตรียมข้อสอบ…";}
     try{
-      activeAttempt=await window.KP_EXAM_ENGINE.startAttempt({examYearId:year,questionCount:count,mode:'practice'});
-      attemptAnswers={};currentQuestionIndex=0;renderAttempt();
+      activeAttempt=await window.KP_EXAM_ENGINE.startAttempt({examYearId:year,questionCount:count,mode});
+      attemptAnswers={};currentQuestionIndex=0;autosaveState="saved";renderAttempt();startCountdown();
     }catch(error){
-      notify(error.message||'ไม่สามารถเริ่มข้อสอบได้');
-      if(button){button.disabled=false;button.textContent='เริ่มทำข้อสอบแยกปี';}
+      notify(error.message||"ไม่สามารถเริ่มข้อสอบได้");
+      if(button){button.disabled=false;button.textContent=simulation?"เริ่ม Mock Exam":"เริ่มทำข้อสอบแยกปี";}
     }
   }
   async function submitAttempt(){
