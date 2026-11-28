@@ -11,7 +11,8 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 const fail = (code, message, status) => json({ error: code, message }, status);
 
 const ALLOWED_QUESTION_COUNTS = new Set([10, 25, 50]);
-const ALLOWED_MODES = new Set(["practice"]);
+const ALLOWED_MODES = new Set(["practice", "simulation"]);
+const MOCK_DURATION_SECONDS = 3600;
 const MAX_BODY_BYTES = 64 * 1024;
 
 async function readJson(request) {
@@ -150,18 +151,22 @@ async function startAttempt(request, env) {
 
   const attemptId = crypto.randomUUID();
   const questionIds = rows.map(row => row.id);
+  const timeLimitSeconds = mode === "simulation" ? MOCK_DURATION_SECONDS : null;
   await env.DB.prepare(
     `INSERT INTO user_attempts
-       (id, user_id, exam_year_id, question_count, mode, status, question_ids_json)
-     VALUES (?, ?, ?, ?, ?, 'in_progress', ?)`
+       (id, user_id, exam_year_id, question_count, mode, status, question_ids_json,
+        time_limit_seconds, deadline_at, started_at)
+     VALUES (?, ?, ?, ?, ?, 'in_progress', ?, ?,
+        CASE WHEN ? IS NULL THEN NULL
+             ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+' || ? || ' seconds') END,
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
   ).bind(
-    attemptId,
-    auth.session.profile_id,
-    examYearId,
-    questionCount,
-    mode,
-    JSON.stringify(questionIds)
+    attemptId, auth.session.profile_id, examYearId, questionCount, mode,
+    JSON.stringify(questionIds), timeLimitSeconds, timeLimitSeconds, timeLimitSeconds
   ).run();
+  const timing = await env.DB.prepare(
+    "SELECT started_at, deadline_at FROM user_attempts WHERE id = ? AND user_id = ?"
+  ).bind(attemptId, auth.session.profile_id).first();
 
   return json({
     data: {
@@ -171,7 +176,9 @@ async function startAttempt(request, env) {
         exam_year_label: year.label || `พ.ศ. ${year.year_be}`,
         question_count: questionCount,
         mode,
-        started_at: new Date().toISOString()
+        time_limit_seconds: timeLimitSeconds,
+        started_at: timing?.started_at || new Date().toISOString(),
+        deadline_at: timing?.deadline_at || null
       },
       questions: rows.map(row => ({
         id: row.id,
@@ -189,7 +196,8 @@ async function startAttempt(request, env) {
 async function loadOwnedAttempt(env, attemptId, profileId) {
   return env.DB.prepare(
     `SELECT id, user_id, exam_year_id, question_count, mode, status,
-            question_ids_json, started_at, submitted_at, score
+            question_ids_json, started_at, submitted_at, score,
+            time_limit_seconds, deadline_at
        FROM user_attempts
       WHERE id = ? AND user_id = ?
       LIMIT 1`
@@ -235,7 +243,10 @@ async function loadResult(env, attempt) {
   return {
     attempt_id: attempt.id,
     exam_year_id: attempt.exam_year_id,
+    mode: attempt.mode,
     status: attempt.status,
+    time_limit_seconds: attempt.time_limit_seconds ?? null,
+    deadline_at: attempt.deadline_at ?? null,
     score,
     total,
     percentage: total ? Math.round((score / total) * 10000) / 100 : 0,
