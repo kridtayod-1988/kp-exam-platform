@@ -600,7 +600,7 @@ test("attempt creation can be scoped to a database exam set and subject", async 
     }
   });
   const response = await handleExamEngine(request, env, new URL(request.url));
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 201);
   assert.equal(DB.state.insertedAttempt.exam_set_id, 9);
   assert.equal(DB.state.insertedAttempt.question_count, 10);
   assert.equal(DB.state.insertedAttempt.mode, "simulation");
