@@ -631,7 +631,7 @@ async function getAttemptResult(env, attemptId, profileId) {
 }
 
 export async function handleExamEngine(request, env, url) {
-  if (env.APP_ENV !== "preview" || env.AUTH_ENABLED !== "true") {
+  if (env.EXAM_ENGINE_ENABLED !== "true" || env.AUTH_ENABLED !== "true") {
     return fail("EXAM_ENGINE_NOT_ENABLED", "Exam Engine ยังไม่เปิดใช้งานใน Environment นี้", 404);
   }
   try {
