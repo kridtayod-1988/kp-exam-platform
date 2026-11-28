@@ -483,6 +483,14 @@ test("expired simulation is finalized from autosaved answers and cannot accept m
   assert.equal(payload.data.result.score, 1);
   assert.equal(DB.state.xp, 10);
   assert.equal(DB.state.attempt.status, "expired");
+
+  const autosave = makeRequest("/api/attempts/" + ATTEMPT_ID + "/answers", {
+    method: "PATCH",
+    body: { answers: [{ question_id: 1, selected_index: 2 }] }
+  });
+  const autosaveResponse = await handleExamEngine(autosave, env, new URL(autosave.url));
+  assert.equal(autosaveResponse.status, 409);
+  assert.equal((await autosaveResponse.json()).error, "ATTEMPT_NOT_ACTIVE");
 });
 
 
