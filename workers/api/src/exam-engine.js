@@ -84,9 +84,14 @@ async function startAttempt(request, env) {
       : fail("INVALID_JSON", "รูปแบบ JSON ไม่ถูกต้อง", 400);
   }
 
-  const { exam_year_id: examYearId, question_count: questionCount, mode = "practice" } = parsed.value;
-  if (!Number.isSafeInteger(examYearId) || examYearId <= 0) {
-    return fail("INVALID_EXAM_YEAR", "รหัสปีข้อสอบไม่ถูกต้อง", 400);
+  let { exam_year_id: examYearId, question_count: questionCount, mode = "practice" } = parsed.value;
+  const examSetId = parsed.value.exam_set_id ?? null;
+  const subcategoryId = parsed.value.subcategory_id ?? null;
+  if (examSetId !== null && (!Number.isSafeInteger(examSetId) || examSetId <= 0)) {
+    return fail("INVALID_EXAM_SET", "รหัสชุดข้อสอบไม่ถูกต้อง", 400);
+  }
+  if (subcategoryId !== null && (typeof subcategoryId !== "string" || !/^[a-z0-9-]{2,80}$/.test(subcategoryId))) {
+    return fail("INVALID_SUBJECT", "รหัสรายวิชาไม่ถูกต้อง", 400);
   }
   if (!ALLOWED_QUESTION_COUNTS.has(questionCount)) {
     return fail("INVALID_QUESTION_COUNT", "จำนวนข้อสอบต้องเป็น 10, 25 หรือ 50 ข้อ", 400);
@@ -95,11 +100,38 @@ async function startAttempt(request, env) {
     return fail("INVALID_EXAM_MODE", "รูปแบบการสอบไม่ถูกต้อง", 400);
   }
 
+  let examSet = null;
+  if (examSetId !== null) {
+    examSet = await env.DB.prepare(
+      "SELECT id, exam_year_id, title FROM exam_sets WHERE id = ? AND is_active = 1 LIMIT 1"
+    ).bind(examSetId).first();
+    if (!examSet) return fail("EXAM_SET_NOT_FOUND", "ไม่พบชุดข้อสอบหรือชุดข้อสอบยังไม่เปิดใช้งาน", 404);
+    if (examYearId !== undefined && examYearId !== null && examYearId !== examSet.exam_year_id) {
+      return fail("EXAM_SET_YEAR_MISMATCH", "ปีข้อสอบไม่ตรงกับชุดข้อสอบที่เลือก", 400);
+    }
+    examYearId = examSet.exam_year_id;
+  }
+  if (!Number.isSafeInteger(examYearId) || examYearId <= 0) {
+    return fail("INVALID_EXAM_YEAR", "รหัสปีข้อสอบไม่ถูกต้อง", 400);
+  }
+
   const year = await env.DB.prepare(
     "SELECT id, year_be, label FROM exam_years WHERE id = ? AND is_active = 1 LIMIT 1"
   ).bind(examYearId).first();
   if (!year) return fail("EXAM_YEAR_NOT_FOUND", "ไม่พบปีข้อสอบหรือปีข้อสอบยังไม่เปิดใช้งาน", 404);
+  if (subcategoryId !== null) {
+    const subject = await env.DB.prepare(
+      "SELECT id FROM subcategories WHERE id = ? AND is_active = 1 LIMIT 1"
+    ).bind(subcategoryId).first();
+    if (!subject) return fail("SUBJECT_NOT_FOUND", "ไม่พบรายวิชาหรือรายวิชายังไม่เปิดใช้งาน", 404);
+  }
 
+  const setFilter = examSetId !== null ? "AND q.exam_set_id = ?" : "";
+  const subjectFilter = subcategoryId !== null ? "AND q.subcategory_id = ?" : "";
+  const scopeParams = [
+    ...(examSetId !== null ? [examSetId] : []),
+    ...(subcategoryId !== null ? [subcategoryId] : [])
+  ];
   const unseen = await env.DB.prepare(
     `SELECT q.id, q.question_text, q.passage, q.choices, q.difficulty,
             q.subcategory_id, sc.name AS subject_name
@@ -109,6 +141,7 @@ async function startAttempt(request, env) {
        LEFT JOIN subject_groups sg
          ON sg.id = sc.subject_group_id AND sg.is_active = 1
       WHERE q.exam_year_id = ? AND q.is_active = 1
+        ${setFilter} ${subjectFilter}
         AND (q.subcategory_id IS NULL OR sg.id IS NOT NULL)
         AND NOT EXISTS (
           SELECT 1 FROM user_seen_questions seen
@@ -116,7 +149,7 @@ async function startAttempt(request, env) {
         )
       ORDER BY RANDOM()
       LIMIT ?`
-  ).bind(examYearId, auth.session.profile_id, questionCount).all();
+  ).bind(examYearId, ...scopeParams, auth.session.profile_id, questionCount).all();
 
   const unseenRows = unseen.results || [];
   const remainingCount = questionCount - unseenRows.length;
@@ -135,11 +168,12 @@ async function startAttempt(request, env) {
          LEFT JOIN subject_groups sg
            ON sg.id = sc.subject_group_id AND sg.is_active = 1
         WHERE q.exam_year_id = ? AND q.is_active = 1
+          ${setFilter} ${subjectFilter}
           AND (q.subcategory_id IS NULL OR sg.id IS NOT NULL)
           ${exclusion}
         ORDER BY RANDOM()
         LIMIT ?`
-    ).bind(examYearId, ...selectedIds, remainingCount).all();
+    ).bind(examYearId, ...scopeParams, ...selectedIds, remainingCount).all();
     rows = [...unseenRows, ...(fallback.results || [])];
   }
   if (rows.length < questionCount) {
@@ -154,14 +188,14 @@ async function startAttempt(request, env) {
   const timeLimitSeconds = mode === "simulation" ? MOCK_DURATION_SECONDS : null;
   await env.DB.prepare(
     `INSERT INTO user_attempts
-       (id, user_id, exam_year_id, question_count, mode, status, question_ids_json,
+       (id, user_id, exam_year_id, exam_set_id, question_count, mode, status, question_ids_json,
         time_limit_seconds, deadline_at, started_at)
-     VALUES (?, ?, ?, ?, ?, 'in_progress', ?, ?,
+     VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?, ?,
         CASE WHEN ? IS NULL THEN NULL
              ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+' || ? || ' seconds') END,
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
   ).bind(
-    attemptId, auth.session.profile_id, examYearId, questionCount, mode,
+    attemptId, auth.session.profile_id, examYearId, examSetId, questionCount, mode,
     JSON.stringify(questionIds), timeLimitSeconds, timeLimitSeconds, timeLimitSeconds
   ).run();
   const timing = await env.DB.prepare(
@@ -173,6 +207,8 @@ async function startAttempt(request, env) {
       attempt: {
         id: attemptId,
         exam_year_id: examYearId,
+        exam_set_id: examSetId,
+        exam_set_title: examSet?.title || null,
         exam_year_label: year.label || `พ.ศ. ${year.year_be}`,
         question_count: questionCount,
         mode,
@@ -416,6 +452,7 @@ async function resumeAttempt(env, attemptId, profileId) {
     attempt: {
       id: attempt.id,
       exam_year_id: attempt.exam_year_id,
+      exam_set_id: attempt.exam_set_id ?? null,
       question_count: attempt.question_count,
       mode: attempt.mode,
       started_at: attempt.started_at,
@@ -456,10 +493,11 @@ async function getAttemptHistory(env, profileId, url) {
       "FROM user_attempts WHERE user_id = ?"
     ).bind(profileId).first(),
     env.DB.prepare(
-      "SELECT a.id, a.exam_year_id, ey.label AS exam_year_label, a.question_count, " +
+      "SELECT a.id, a.exam_year_id, ey.label AS exam_year_label, a.exam_set_id, es.title AS exam_set_title, a.question_count, " +
       "a.mode, a.status, a.score, a.time_limit_seconds, a.started_at, a.deadline_at, a.submitted_at, " +
       "CASE WHEN a.status IN ('submitted', 'expired') THEN ROUND(a.score * 100.0 / a.question_count, 2) ELSE NULL END AS percentage " +
       "FROM user_attempts a LEFT JOIN exam_years ey ON ey.id = a.exam_year_id " +
+      "LEFT JOIN exam_sets es ON es.id = a.exam_set_id " +
       "WHERE a.user_id = ? ORDER BY a.started_at DESC, a.id DESC LIMIT ? OFFSET ?"
     ).bind(profileId, limit, offset).all()
   ]);
