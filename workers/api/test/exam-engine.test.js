@@ -484,3 +484,63 @@ test("expired simulation is finalized from autosaved answers and cannot accept m
   assert.equal(DB.state.xp, 10);
   assert.equal(DB.state.attempt.status, "expired");
 });
+
+
+test("answer autosave requires a valid CSRF token", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "in_progress",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22T12:00:00.000Z",
+      deadline_at: null
+    }
+  });
+  const env = await makeEnv(DB);
+  const request = new Request("https://api.example.test/api/attempts/" + ATTEMPT_ID + "/answers", {
+    method: "PATCH",
+    headers: {
+      Origin: ORIGIN,
+      Cookie: "__Host-kp_session=" + SESSION_TOKEN,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ answers: [{ question_id: 1, selected_index: 2 }] })
+  });
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "CSRF_INVALID");
+});
+
+test("attempt owner can resume and receive saved answers without answer keys", async () => {
+  const rows = questions(10);
+  const DB = makeDb({
+    questionRows: rows,
+    attempt: {
+      id: ATTEMPT_ID,
+      user_id: "profile-1",
+      exam_year_id: 1,
+      question_count: 10,
+      mode: "practice",
+      status: "in_progress",
+      question_ids_json: JSON.stringify(rows.map(row => row.id)),
+      started_at: "2026-11-22T12:00:00.000Z",
+      deadline_at: null,
+      time_limit_seconds: null
+    }
+  });
+  DB.state.answers.set(1, 3);
+  const env = await makeEnv(DB);
+  const request = makeRequest("/api/attempts/" + ATTEMPT_ID);
+  const response = await handleExamEngine(request, env, new URL(request.url));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.data.questions[0].selected_index, 3);
+  assert.equal(JSON.stringify(payload).includes("correct_index"), false);
+  assert.equal(JSON.stringify(payload).includes("private explanation"), false);
+});
