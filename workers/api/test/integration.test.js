@@ -65,4 +65,16 @@ test("preview D1/API and frontend CORS integration", { skip: !apiBase || !fronte
     body: JSON.stringify({ answers: [] })
   });
   assert.equal(autosave.status, 401, "answer autosave must require an authenticated session");
+
+  const appAssetUrl = new URL("/js/app.js?staging-smoke=" + Date.now(), frontendOrigin);
+  const appAsset = await fetch(appAssetUrl);
+  assert.equal(appAsset.status, 200, "Staging frontend must serve the updated application bundle");
+  const appSource = await appAsset.text();
+  assert.match(appSource, /queueAutosave/, "Staging frontend must include answer autosave");
+  assert.match(appSource, /resumeSavedAttempt/, "Staging frontend must include attempt resume");
+  assert.match(appSource, /start-mock/, "Staging frontend must include the Mock Exam entry point");
+
+  const adapterAsset = await fetch(new URL("/js/exam-engine.js?staging-smoke=" + Date.now(), frontendOrigin));
+  assert.equal(adapterAsset.status, 200, "Staging frontend must serve the updated Exam Engine adapter");
+  assert.match(await adapterAsset.text(), /saveAnswers/, "Staging adapter must call the autosave API");
 });
