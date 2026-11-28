@@ -1,4 +1,4 @@
-/* Exam Engine API adapter. Answers stay in memory; scoring and answer keys remain server-side. */
+/* Exam Engine API adapter. Answers autosave to the server; scoring and answer keys remain server-side. */
 (() => {
   const config = window.KP_CONFIG || {};
   const baseUrl = String(config.apiBaseUrl || '').replace(/\/$/, '');
