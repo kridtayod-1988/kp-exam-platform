@@ -426,8 +426,14 @@ async function submitAttempt(request, env, attemptId) {
   }
   const attempt = await loadOwnedAttempt(env, attemptId, auth.session.profile_id);
   if (!attempt) return fail("ATTEMPT_NOT_FOUND", "ไม่พบชุดข้อสอบนี้", 404);
-  if (attempt.status === "submitted") {
+  if (attempt.status === "submitted" || attempt.status === "expired") {
     return json({ data: { result: await loadResult(env, attempt) } });
+  }
+  if (attempt.deadline_at) {
+    const expiredAttempt = await expireAttempt(env, attempt);
+    if (expiredAttempt?.status === "expired") {
+      return json({ data: { result: await loadResult(env, expiredAttempt) } });
+    }
   }
   if (attempt.status !== "in_progress") {
     return fail("ATTEMPT_NOT_ACTIVE", "ชุดข้อสอบนี้ไม่อยู่ในสถานะที่ส่งคำตอบได้", 409);
@@ -559,7 +565,7 @@ async function getAttemptResult(env, attemptId, profileId) {
   }
   const attempt = await loadOwnedAttempt(env, attemptId, profileId);
   if (!attempt) return fail("ATTEMPT_NOT_FOUND", "ไม่พบชุดข้อสอบนี้", 404);
-  if (attempt.status !== "submitted") {
+  if (attempt.status !== "submitted" && attempt.status !== "expired") {
     return fail("ATTEMPT_NOT_SUBMITTED", "ยังไม่สามารถดูเฉลยได้ก่อนส่งข้อสอบ", 409);
   }
   return json({ data: { result: await loadResult(env, attempt) } });
@@ -570,8 +576,17 @@ export async function handleExamEngine(request, env, url) {
     return fail("EXAM_ENGINE_NOT_ENABLED", "Exam Engine ยังไม่เปิดใช้งานใน Environment นี้", 404);
   }
   try {
+    if (request.method === "GET" && url.pathname === "/api/attempts") {
+      const session = await getAuthenticatedSession(request, env);
+      if (!session) return fail("UNAUTHENTICATED", "กรุณาเข้าสู่ระบบเพื่อดูประวัติการสอบ", 401);
+      return await getAttemptHistory(env, session.profile_id, url);
+    }
     if (request.method === "POST" && url.pathname === "/api/attempts") {
       return await startAttempt(request, env);
+    }
+    const answersMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)/answers$"));
+    if (request.method === "PATCH" && answersMatch) {
+      return await saveAttemptAnswers(request, env, decodeURIComponent(answersMatch[1]));
     }
     const submitMatch = url.pathname.match(new RegExp("^/api/attempts/([^/]+)/submit$"));
     if (request.method === "POST" && submitMatch) {
