@@ -61,6 +61,11 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
         async first() {
           if (sql.includes("FROM auth_sessions s JOIN profiles")) return sessionRow;
           if (sql.includes("INSERT INTO auth_audit_log")) return { id: 1 };
+          if (sql.includes("SELECT CASE WHEN datetime(?)")) return { expired: state.forceExpired ? 1 : 0 };
+          if (sql.includes("SELECT COUNT(*) AS score FROM user_answers")) return { score: state.expiredScore || 0 };
+          if (sql.includes("SELECT COUNT(*) AS total FROM user_attempts")) return { total: state.attempt ? 1 : 0 };
+          if (sql.includes("COUNT(CASE WHEN status")) return { completed_count: state.attempt?.status === "submitted" || state.attempt?.status === "expired" ? 1 : 0, average_percentage: 70, best_percentage: 70 };
+          if (sql.includes("SELECT started_at, deadline_at FROM user_attempts")) return state.attempt;
           if (sql.includes("FROM exam_years")) return { id: 1, year_be: 2567, label: "พ.ศ. 2567" };
           if (sql.includes("FROM user_attempts") && sql.includes("WHERE id = ? AND user_id = ?")) {
             return state.attempt && state.attempt.id === values[0] && state.attempt.user_id === values[1]
@@ -72,6 +77,12 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
         async all() {
           state.queryLog.push(sql);
           if (sql.includes("ORDER BY RANDOM()")) return { results: state.questionRows };
+          if (sql.includes("SELECT id, choices FROM questions")) {
+            return { results: state.questionRows.filter(row => values.includes(row.id)).map(({ id, choices }) => ({ id, choices })) };
+          }
+          if (sql.includes("SELECT a.id, a.exam_year_id")) {
+            return { results: state.attempt ? [{ ...state.attempt, exam_year_label: "พ.ศ. 2567", percentage: 70 }] : [] };
+          }
           if (sql.includes("SELECT id, choices, correct_index")) return {
             results: state.questionRows.map(({ id, choices, correct_index }) => ({ id, choices, correct_index }))
           };
@@ -95,11 +106,16 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
               mode: values[4],
               status: "in_progress",
               question_ids_json: values[5],
-              started_at: "2026-11-22 12:00:00",
+              time_limit_seconds: values[6] ?? null,
+              deadline_at: values[6] ? "2026-11-22T13:00:00.000Z" : null,
+              started_at: "2026-11-22T12:00:00.000Z",
               submitted_at: null,
               score: null
             };
             state.attempt = state.insertedAttempt;
+          }
+          if (sql.includes("INSERT INTO user_answers") && values.length === 4) {
+            for (const answer of JSON.parse(values[1])) state.answers.set(answer.question_id, answer.selected_index);
           }
           return { success: true, meta: { changes: 1 } };
         }
