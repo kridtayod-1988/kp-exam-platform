@@ -50,4 +50,19 @@ test("preview D1/API and frontend CORS integration", { skip: !apiBase || !fronte
   assert.equal(preflight.status, 204);
   assert.equal(preflight.headers.get("access-control-allow-origin"), frontendOrigin);
   assert.equal(preflight.headers.get("access-control-allow-credentials"), "true");
+
+  const history = await fetchPreview("/api/attempts", {
+    headers: { Origin: frontendOrigin, Accept: "application/json" }
+  });
+  assert.equal(history.status, 401, "attempt history must require an authenticated session");
+
+  const autosave = await fetchPreview("/api/attempts/00000000-0000-4000-8000-000000000001/answers", {
+    method: "PATCH",
+    headers: {
+      Origin: frontendOrigin,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ answers: [] })
+  });
+  assert.equal(autosave.status, 401, "answer autosave must require an authenticated session");
 });
