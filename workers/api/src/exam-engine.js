@@ -257,6 +257,166 @@ async function loadResult(env, attempt) {
   };
 }
 
+
+async function expireAttempt(env, attempt) {
+  if (!attempt || attempt.status !== "in_progress" || !attempt.deadline_at) return attempt;
+  const expiry = await env.DB.prepare(
+    "SELECT CASE WHEN datetime(?) <= datetime('now') THEN 1 ELSE 0 END AS expired"
+  ).bind(attempt.deadline_at).first();
+  if (!Number(expiry?.expired)) return attempt;
+
+  const scoreRow = await env.DB.prepare(
+    "SELECT COUNT(*) AS score FROM user_answers ua " +
+    "INNER JOIN questions q ON q.id = ua.question_id " +
+    "WHERE ua.attempt_id = ? AND ua.selected_index = q.correct_index"
+  ).bind(attempt.id).first();
+  const score = Number(scoreRow?.score || 0);
+  const marker = new Date().toISOString();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE user_attempts SET status = 'expired', score = ?, submitted_at = ? " +
+      "WHERE id = ? AND user_id = ? AND status = 'in_progress' " +
+      "AND deadline_at IS NOT NULL AND datetime(deadline_at) <= datetime('now')"
+    ).bind(score, marker, attempt.id, attempt.user_id),
+    env.DB.prepare(
+      "UPDATE profiles SET xp = xp + ? WHERE id = ? AND EXISTS (" +
+      "SELECT 1 FROM user_attempts WHERE id = ? AND user_id = ? " +
+      "AND status = 'expired' AND submitted_at = ?)"
+    ).bind(score * 10, attempt.user_id, attempt.id, attempt.user_id, marker),
+    env.DB.prepare(
+      "INSERT INTO user_seen_questions (profile_id, question_id, seen_at) " +
+      "SELECT ?, CAST(value AS INTEGER), ? FROM json_each(?) WHERE EXISTS (" +
+      "SELECT 1 FROM user_attempts WHERE id = ? AND user_id = ? " +
+      "AND status = 'expired' AND submitted_at = ?) " +
+      "ON CONFLICT(profile_id, question_id) DO NOTHING"
+    ).bind(attempt.user_id, marker, attempt.question_ids_json, attempt.id, attempt.user_id, marker)
+  ]);
+  const claimed = Number(results?.[0]?.meta?.changes ?? results?.[0]?.changes ?? 0) === 1;
+  return claimed
+    ? loadOwnedAttempt(env, attempt.id, attempt.user_id)
+    : loadOwnedAttempt(env, attempt.id, attempt.user_id);
+}
+
+async function saveAttemptAnswers(request, env, attemptId) {
+  const auth = await authenticatedMutation(request, env);
+  if (auth.error) return auth.error;
+  if (!/^[0-9a-f-]{36}$/i.test(attemptId)) {
+    return fail("INVALID_ATTEMPT_ID", "รหัสชุดข้อสอบไม่ถูกต้อง", 400);
+  }
+  let attempt = await loadOwnedAttempt(env, attemptId, auth.session.profile_id);
+  if (!attempt) return fail("ATTEMPT_NOT_FOUND", "ไม่พบชุดข้อสอบนี้", 404);
+  if (attempt.status !== "in_progress") {
+    return fail("ATTEMPT_NOT_ACTIVE", "ชุดข้อสอบนี้ไม่อยู่ในสถานะที่บันทึกคำตอบได้", 409);
+  }
+  if (attempt.deadline_at) {
+    attempt = await expireAttempt(env, attempt);
+    if (attempt?.status === "expired") {
+      return fail("ATTEMPT_EXPIRED", "หมดเวลาสอบแล้ว ระบบปิดรับคำตอบและบันทึกคะแนนอัตโนมัติ", 409);
+    }
+  }
+
+  const parsed = await readJson(request);
+  if (parsed.error) {
+    return parsed.error === "BODY_TOO_LARGE"
+      ? fail("BODY_TOO_LARGE", "ข้อมูลคำตอบมีขนาดใหญ่เกินไป", 413)
+      : fail("INVALID_JSON", "รูปแบบ JSON ไม่ถูกต้อง", 400);
+  }
+  const answers = parsed.value.answers;
+  if (!Array.isArray(answers) || answers.length > attempt.question_count) {
+    return fail("INVALID_ANSWERS", "รูปแบบคำตอบไม่ถูกต้อง", 400);
+  }
+  const snapshotIds = parseIdSnapshot(attempt.question_ids_json);
+  if (!snapshotIds || snapshotIds.length !== attempt.question_count) {
+    return fail("ATTEMPT_QUESTION_SNAPSHOT_INVALID", "ข้อมูลชุดข้อสอบไม่ถูกต้อง", 500);
+  }
+  const allowedIds = new Set(snapshotIds);
+  const seen = new Set();
+  for (const answer of answers) {
+    if (!answer || !Number.isSafeInteger(answer.question_id) ||
+        !Number.isSafeInteger(answer.selected_index) || answer.selected_index < 0 ||
+        !allowedIds.has(answer.question_id) || seen.has(answer.question_id)) {
+      return fail("INVALID_ANSWERS", "พบคำตอบซ้ำหรือคำตอบที่ไม่อยู่ในชุดข้อสอบ", 400);
+    }
+    seen.add(answer.question_id);
+  }
+
+  if (answers.length) {
+    const ids = [...seen];
+    const placeholders = ids.map(() => "?").join(",");
+    const rows = await env.DB.prepare(
+      "SELECT id, choices FROM questions WHERE id IN (" + placeholders + ")"
+    ).bind(...ids).all();
+    const byId = new Map((rows.results || []).map(row => [row.id, row]));
+    if (byId.size !== ids.length) {
+      return fail("ATTEMPT_QUESTION_MISSING", "ข้อสอบบางข้อไม่พร้อมใช้งานแล้ว", 409);
+    }
+    for (const answer of answers) {
+      if (answer.selected_index >= parseChoices(byId.get(answer.question_id).choices).length) {
+        return fail("ANSWER_OUT_OF_RANGE", "ตัวเลือกคำตอบไม่ถูกต้อง", 400);
+      }
+    }
+    const result = await env.DB.prepare(
+      "INSERT INTO user_answers (attempt_id, question_id, selected_index) " +
+      "SELECT ?, CAST(json_extract(value, '$.question_id') AS INTEGER), " +
+      "CAST(json_extract(value, '$.selected_index') AS INTEGER) FROM json_each(?) " +
+      "WHERE EXISTS (SELECT 1 FROM user_attempts WHERE id = ? AND user_id = ? " +
+      "AND status = 'in_progress' AND (deadline_at IS NULL OR datetime(deadline_at) > datetime('now'))) " +
+      "ON CONFLICT(attempt_id, question_id) DO UPDATE SET " +
+      "selected_index = excluded.selected_index, answered_at = CURRENT_TIMESTAMP"
+    ).bind(attemptId, JSON.stringify(answers), attemptId, auth.session.profile_id).run();
+    const changes = Number(result?.meta?.changes ?? result?.changes ?? 0);
+    if (changes !== answers.length) {
+      const latest = await loadOwnedAttempt(env, attemptId, auth.session.profile_id);
+      if (latest?.status === "in_progress" && latest.deadline_at) {
+        const expiredAttempt = await expireAttempt(env, latest);
+        if (expiredAttempt?.status === "expired") {
+          return fail("ATTEMPT_EXPIRED", "หมดเวลาสอบแล้ว ระบบปิดรับคำตอบและบันทึกคะแนนอัตโนมัติ", 409);
+        }
+      }
+      return fail("ATTEMPT_NOT_ACTIVE", "ชุดข้อสอบถูกปิดรับคำตอบแล้ว", 409);
+    }
+  }
+  return json({ data: { attempt_id: attemptId, saved_count: answers.length, saved_at: new Date().toISOString() } });
+}
+
+async function getAttemptHistory(env, profileId, url) {
+  const page = Number(url.searchParams.get("page") || 1);
+  const limit = Number(url.searchParams.get("limit") || 20);
+  if (!Number.isSafeInteger(page) || page < 1 || page > 10000 ||
+      !Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
+    return fail("INVALID_PAGINATION", "page ต้องเป็นจำนวนเต็มบวก และ limit ต้องอยู่ระหว่าง 1–50", 400);
+  }
+  const offset = (page - 1) * limit;
+  const [countRow, summary, rows] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS total FROM user_attempts WHERE user_id = ?")
+      .bind(profileId).first(),
+    env.DB.prepare(
+      "SELECT COUNT(CASE WHEN status IN ('submitted', 'expired') THEN 1 END) AS completed_count, " +
+      "ROUND(AVG(CASE WHEN status IN ('submitted', 'expired') THEN score * 100.0 / question_count END), 2) AS average_percentage, " +
+      "MAX(CASE WHEN status IN ('submitted', 'expired') THEN ROUND(score * 100.0 / question_count, 2) END) AS best_percentage " +
+      "FROM user_attempts WHERE user_id = ?"
+    ).bind(profileId).first(),
+    env.DB.prepare(
+      "SELECT a.id, a.exam_year_id, ey.label AS exam_year_label, a.question_count, " +
+      "a.mode, a.status, a.score, a.time_limit_seconds, a.started_at, a.deadline_at, a.submitted_at, " +
+      "CASE WHEN a.status IN ('submitted', 'expired') THEN ROUND(a.score * 100.0 / a.question_count, 2) ELSE NULL END AS percentage " +
+      "FROM user_attempts a LEFT JOIN exam_years ey ON ey.id = a.exam_year_id " +
+      "WHERE a.user_id = ? ORDER BY a.started_at DESC, a.id DESC LIMIT ? OFFSET ?"
+    ).bind(profileId, limit, offset).all()
+  ]);
+  const total = Number(countRow?.total || 0);
+  return json({ data: {
+    summary: {
+      total_attempts: total,
+      completed_count: Number(summary?.completed_count || 0),
+      average_percentage: summary?.average_percentage == null ? null : Number(summary.average_percentage),
+      best_percentage: summary?.best_percentage == null ? null : Number(summary.best_percentage)
+    },
+    pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
+    attempts: rows.results || []
+  } });
+}
+
 async function submitAttempt(request, env, attemptId) {
   const auth = await authenticatedMutation(request, env);
   if (auth.error) return auth.error;
