@@ -36,16 +36,16 @@
     <div class="section-head"><div><h3>ขั้นตอนการฝึก</h3><p>จากการเลือกชุดข้อสอบจนถึงการทบทวนผล</p></div></div>
     <div class="steps"><div class="step"><div class="step-num">1</div><b>เลือกปีสอบ</b><small>เลือกปีจากฐานข้อมูล</small></div><div class="step"><div class="step-num">2</div><b>กำหนดจำนวนข้อ</b><small>เลือก 10, 25 หรือ 50 ข้อ</small></div><div class="step"><div class="step-num">3</div><b>ทำข้อสอบ</b><small>ตอบคำถามและตรวจทาน</small></div><div class="step"><div class="step-num">4</div><b>ดูผลสอบ</b><small>คะแนนและหัวข้อทบทวน</small></div></div>
     <div class="alert info">หมายเหตุ: หน้านี้เชื่อม API สำหรับโหลดปีสอบแล้ว ส่วนการสร้างชุดข้อสอบ บันทึกคำตอบ และตรวจคะแนนต้องเชื่อม Exam Engine ฝั่ง Server ก่อนเปิดใช้งาน</div>`;}
-  function mock(){return intro('Mock Exam','ฝึกบริหารเวลาและประเมินความพร้อมก่อนวันสอบ')+\`
+  function mock(){return intro('Mock Exam','ฝึกบริหารเวลาและประเมินความพร้อมก่อนวันสอบ')+`
     <section class="panel form-panel"><div class="panel-head"><div><h3>ตั้งค่าการสอบจำลอง</h3><p>ระบบจะกำหนดเวลาสอบจากฝั่ง Server และบันทึกคำตอบอัตโนมัติ</p></div><span class="badge">จับเวลา 60 นาที</span></div>
-      <div class="form-grid"><div class="field"><label for="mock-year">ปีข้อสอบ</label><select id="mock-year"><option value="">เลือกปีข้อสอบ</option>\${years.map(y=>\`<option value="\${esc(y.id)}">\${esc(y.label)}</option>\`).join('')}</select></div>
+      <div class="form-grid"><div class="field"><label for="mock-year">ปีข้อสอบ</label><select id="mock-year"><option value="">เลือกปีข้อสอบ</option>${years.map(y=>`<option value="${esc(y.id)}">${esc(y.label)}</option>`).join('')}</select></div>
       <div class="field"><label for="mock-count">จำนวนข้อ</label><select id="mock-count"><option value="50" selected>50 ข้อ</option><option value="25">25 ข้อ</option><option value="10">10 ข้อ</option></select></div></div>
-      <div class="form-actions"><button class="btn" id="start-mock" \${years.length?'':'disabled'}>เริ่ม Mock Exam</button><span class="hint">เวลาสอบ 60 นาที • บันทึกคำตอบทุกครั้งที่เลือก</span></div>
+      <div class="form-actions"><button class="btn" id="start-mock" ${years.length?'':'disabled'}>เริ่ม Mock Exam</button><span class="hint">เวลาสอบ 60 นาที • บันทึกคำตอบทุกครั้งที่เลือก</span></div>
     </section>
     <div class="subject-grid"><article class="panel subject"><span class="badge">Server timer</span><h3>จับเวลาจริง</h3><p>กำหนดเวลาสิ้นสุดจากฐานข้อมูล ไม่เชื่อเวลาที่ส่งมาจากเบราว์เซอร์</p></article>
     <article class="panel subject"><span class="badge gray">Autosave</span><h3>บันทึกคำตอบ</h3><p>คำตอบจะถูกบันทึกระหว่างทำข้อสอบ และนำไปคิดคะแนนเมื่อหมดเวลา</p></article>
     <article class="panel subject"><span class="badge gray">Report</span><h3>รายงานผลสอบ</h3><p>ดูคะแนนย้อนหลัง สถานะการสอบ และค่าเฉลี่ยจากบัญชีของคุณ</p></article></div>
-    <div class="alert info">Mock Exam ใช้ชุดข้อสอบที่เปิดใช้งานในฐานข้อมูล Staging/Production ตามแหล่งข้อมูลที่ได้รับการตรวจสอบ</div>\`;}
+    <div class="alert info">Mock Exam ใช้ชุดข้อสอบที่เปิดใช้งานในฐานข้อมูล Staging/Production ตามแหล่งข้อมูลที่ได้รับการตรวจสอบ</div>`;}
   function bank(){const subjects=[['คิดวิเคราะห์','การคิดวิเคราะห์เชิงภาษา นามธรรม และเชิงปริมาณ','∑'],['ภาษาอังกฤษ','คำศัพท์ ไวยากรณ์ และการอ่านจับใจความ','A'],['ความรู้และลักษณะการเป็นข้าราชการที่ดี','กฎหมาย ระเบียบ และหลักการบริหารราชการ','§']];return intro('คลังข้อสอบ','เลือกวิชาและหมวดหมู่เพื่อวางแผนทบทวน')+`
     <div class="subject-grid">${subjects.map(s=>`<article class="panel subject"><div class="feature-icon">${s[2]}</div><span class="badge gray">หมวดวิชาหลัก</span><h3>${s[0]}</h3><p>${s[1]}</p><div class="subject-meta"><span>รายการข้อสอบ</span><span>รอเชื่อมฐานข้อมูล</span></div></article>`).join('')}</div>
     <div class="alert info">หมวดวิชาเป็นโครงสร้าง UX เบื้องต้น รายการวิชาและจำนวนข้อจริงจะดึงจากฐานข้อมูลเมื่อ API คลังข้อสอบพร้อมใช้งาน</div>`;}
@@ -73,15 +73,15 @@
     const remaining=activeAttempt.deadlineAt?Math.max(0,Math.ceil((Date.parse(activeAttempt.deadlineAt)-Date.now())/1000)):null;
     const clock=remaining===null?'ไม่จำกัดเวลา':String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');
     const saveLabel=autosaveState==='saving'?'กำลังบันทึก…':autosaveState==='pending'?'รอบันทึก…':autosaveState==='error'?'บันทึกไม่สำเร็จ':'บันทึกแล้ว';
-    root.innerHTML=\`<div class="exam-toolbar"><button class="btn soft small" id="exit-attempt">ออกจากข้อสอบ</button><span class="badge">\${activeAttempt.mode==='simulation'?'Mock Exam':'กำลังทำข้อสอบ'}</span><span class="exam-progress">ข้อ \${currentQuestionIndex+1} / \${activeAttempt.questions.length}</span><strong id="exam-clock" class="badge">\${clock}</strong></div>
-      <div class="exam-progress-track"><span style="width:\${((currentQuestionIndex+1)/activeAttempt.questions.length)*100}%"></span></div>
-      <section class="panel exam-panel"><div class="exam-question-meta"><span>\${q.subject?esc(q.subject):'ข้อสอบ ก.พ.'}</span><span>ข้อที่ \${currentQuestionIndex+1}</span></div>
-      \${q.passage?\`<div class="exam-passage">\${esc(q.passage)}</div>\`:''}
-      <h2 class="exam-question">\${esc(q.questionText)}</h2>
-      <div class="exam-choices">\${q.choices.map((choice,i)=>\`<label class="exam-choice \${selected===i?'selected':''}"><input type="radio" name="exam-answer" value="\${i}" \${selected===i?'checked':''}><span class="choice-key">\${String.fromCharCode(65+i)}</span><span>\${esc(choice)}</span></label>\`).join('')}</div>
-      <div class="exam-actions"><button class="btn soft" id="prev-question" \${currentQuestionIndex===0?'disabled':''}>ข้อก่อนหน้า</button><span class="hint">ตอบแล้ว \${Object.keys(attemptAnswers).length} / \${activeAttempt.questions.length} ข้อ</span>\${currentQuestionIndex<activeAttempt.questions.length-1?'<button class="btn" id="next-question">ข้อต่อไป</button>':'<button class="btn" id="review-submit">ตรวจทานและส่งข้อสอบ</button>'}</div></section>
-      <div class="exam-number-grid">\${activeAttempt.questions.map((item,i)=>\`<button class="question-number \${i===currentQuestionIndex?'current':''} \${attemptAnswers[String(item.id)]!==undefined?'answered':''}" data-question-index="\${i}" aria-label="ไปข้อที่ \${i+1}">\${i+1}</button>\`).join('')}</div>
-      <p class="hint">สถานะคำตอบ: <strong id="autosave-status">\${saveLabel}</strong> • ระบบบันทึกคำตอบไปยัง Server อัตโนมัติ</p>\`;
+    root.innerHTML=`<div class="exam-toolbar"><button class="btn soft small" id="exit-attempt">ออกจากข้อสอบ</button><span class="badge">${activeAttempt.mode==='simulation'?'Mock Exam':'กำลังทำข้อสอบ'}</span><span class="exam-progress">ข้อ ${currentQuestionIndex+1} / ${activeAttempt.questions.length}</span><strong id="exam-clock" class="badge">${clock}</strong></div>
+      <div class="exam-progress-track"><span style="width:${((currentQuestionIndex+1)/activeAttempt.questions.length)*100}%"></span></div>
+      <section class="panel exam-panel"><div class="exam-question-meta"><span>${q.subject?esc(q.subject):'ข้อสอบ ก.พ.'}</span><span>ข้อที่ ${currentQuestionIndex+1}</span></div>
+      ${q.passage?`<div class="exam-passage">${esc(q.passage)}</div>`:''}
+      <h2 class="exam-question">${esc(q.questionText)}</h2>
+      <div class="exam-choices">${q.choices.map((choice,i)=>`<label class="exam-choice ${selected===i?'selected':''}"><input type="radio" name="exam-answer" value="${i}" ${selected===i?'checked':''}><span class="choice-key">${String.fromCharCode(65+i)}</span><span>${esc(choice)}</span></label>`).join('')}</div>
+      <div class="exam-actions"><button class="btn soft" id="prev-question" ${currentQuestionIndex===0?'disabled':''}>ข้อก่อนหน้า</button><span class="hint">ตอบแล้ว ${Object.keys(attemptAnswers).length} / ${activeAttempt.questions.length} ข้อ</span>${currentQuestionIndex<activeAttempt.questions.length-1?'<button class="btn" id="next-question">ข้อต่อไป</button>':'<button class="btn" id="review-submit">ตรวจทานและส่งข้อสอบ</button>'}</div></section>
+      <div class="exam-number-grid">${activeAttempt.questions.map((item,i)=>`<button class="question-number ${i===currentQuestionIndex?'current':''} ${attemptAnswers[String(item.id)]!==undefined?'answered':''}" data-question-index="${i}" aria-label="ไปข้อที่ ${i+1}">${i+1}</button>`).join('')}</div>
+      <p class="hint">สถานะคำตอบ: <strong id="autosave-status">${saveLabel}</strong> • ระบบบันทึกคำตอบไปยัง Server อัตโนมัติ</p>`;
   }
   function currentAnswers(){
     return activeAttempt.questions.filter(q=>attemptAnswers[String(q.id)]!==undefined)
@@ -180,10 +180,10 @@
       const total=Number(data.total??activeAttempt.questions.length);
       const percentage=Number(data.percentage??(total?score/total*100:0));
       const expired=data.status==="expired";
-      root.innerHTML=\`<div class="page-intro"><div><h2>\${expired?"หมดเวลาสอบ":"ผลการสอบ"}</h2><p>\${expired?"ระบบปิดรับคำตอบและบันทึกคะแนนจากคำตอบที่บันทึกไว้":"ระบบตรวจคะแนนจาก Server แล้ว"}</p></div></div>
-        <section class="panel result-summary"><div class="result-score">\${Number.isFinite(score)?score:"—"} <small>/ \${Number.isFinite(total)?total:activeAttempt.questions.length}</small></div>
-        <h3>คะแนนที่ได้</h3><div class="result-percent">\${Number.isFinite(percentage)?percentage.toFixed(1):"—"}%</div>
-        <p class="muted">Attempt ID: \${esc(activeAttempt.id)}</p><button class="btn" id="return-history">ดูประวัติการสอบ</button></section>\`;
+      root.innerHTML=`<div class="page-intro"><div><h2>${expired?"หมดเวลาสอบ":"ผลการสอบ"}</h2><p>${expired?"ระบบปิดรับคำตอบและบันทึกคะแนนจากคำตอบที่บันทึกไว้":"ระบบตรวจคะแนนจาก Server แล้ว"}</p></div></div>
+        <section class="panel result-summary"><div class="result-score">${Number.isFinite(score)?score:"—"} <small>/ ${Number.isFinite(total)?total:activeAttempt.questions.length}</small></div>
+        <h3>คะแนนที่ได้</h3><div class="result-percent">${Number.isFinite(percentage)?percentage.toFixed(1):"—"}%</div>
+        <p class="muted">Attempt ID: ${esc(activeAttempt.id)}</p><button class="btn" id="return-history">ดูประวัติการสอบ</button></section>`;
       activeAttempt=null;attemptAnswers={};notify(expired?"บันทึกผลเมื่อหมดเวลาแล้ว":"บันทึกผลการสอบแล้ว");
     }catch(error){
       notify(error.message||"ส่งข้อสอบไม่สำเร็จ กรุณาลองอีกครั้ง");
