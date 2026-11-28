@@ -571,7 +571,7 @@ test("Exam Engine can be enabled outside Preview only with both explicit flags",
   env.APP_ENV = "production";
   env.AUTH_ENABLED = "true";
   env.EXAM_ENGINE_ENABLED = "true";
-  const request = makeRequest("/api/attempts");
+  const request = new Request("https://api.example.test/api/attempts");
   const response = await handleExamEngine(request, env, new URL(request.url));
   assert.equal(response.status, 401);
   assert.equal((await response.json()).error, "UNAUTHENTICATED");
