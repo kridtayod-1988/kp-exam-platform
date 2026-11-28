@@ -29,3 +29,20 @@ test("Exam Engine adapter exposes autosave, resume, submit, and history", () => 
   assert.match(adapter, /async function submitAttempt\(/);
   assert.match(adapter, /async function getHistory\(/);
 });
+
+test("subject catalogue reads the API's nested exam-year response and exam-set list", () => {
+  assert.match(app, /body\.data\?\.exam_years/);
+  assert.match(app, /async function fetchCatalog\(/);
+  assert.match(app, /async function fetchExamSets\(/);
+  assert.match(app, /data-start-set/);
+  assert.match(app, /data-practice-subject/);
+});
+
+test("navigation labels are updated and Mock Exam no longer uses year/count dropdowns", async () => {
+  const html = await readFile(new URL("../../../index.html", import.meta.url), "utf8");
+  assert.match(html, /ฝึกสอบตามรายวิชา/);
+  assert.match(html, /คลังข้อสอบ/);
+  assert.match(html, /จำลองสนามจริง/);
+  assert.doesNotMatch(app, /id="mock-year"/);
+  assert.doesNotMatch(app, /id="mock-count"/);
+});
