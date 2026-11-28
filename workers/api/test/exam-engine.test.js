@@ -165,6 +165,7 @@ async function makeEnv(DB) {
     DB,
     APP_ENV: "preview",
     AUTH_ENABLED: "true",
+    EXAM_ENGINE_ENABLED: "true",
     CORS_ALLOWED_ORIGINS: ORIGIN
   };
 }
