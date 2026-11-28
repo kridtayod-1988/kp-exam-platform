@@ -37,6 +37,6 @@ test("Staging frontend serves initialized and serialized autosave state", {
   const source = await response.text();
   assert.match(source, /let activeAttempt=null;/);
   assert.match(source, /let autosaveInFlight=false;/);
-  assert.match(source, /if\\(autosaveInFlight\\)\\{autosaveQueued=true;return;\\}/);
+  assert.match(source, /if\s*\(\s*autosaveInFlight\s*\)\s*\{\s*autosaveQueued\s*=\s*true;\s*return;\s*\}/);
   assert.match(source, /สามารถกลับมาทำต่อจากประวัติการสอบได้/);
 });
