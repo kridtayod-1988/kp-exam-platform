@@ -62,22 +62,39 @@
     }
     return {
       id: attempt.id,
+      mode: attempt.mode || mode,
       examYearLabel: attempt.exam_year_label || '',
       startedAt: attempt.started_at || new Date().toISOString(),
+      deadlineAt: attempt.deadline_at || null,
+      timeLimitSeconds: attempt.time_limit_seconds ?? null,
       questions: rawQuestions.map(normalizeQuestion)
     };
   }
 
-  async function submitAttempt(attemptId, answers) {
-    const normalized = answers.map(answer => ({
+  function normalizeAnswers(answers) {
+    return answers.map(answer => ({
       question_id: answer.questionId,
       selected_index: answer.selectedIndex
     }));
-    return request('/api/attempts/' + encodeURIComponent(attemptId) + '/submit', {
-      method: 'POST',
-      body: { answers: normalized }
+  }
+
+  async function saveAnswers(attemptId, answers) {
+    return request('/api/attempts/' + encodeURIComponent(attemptId) + '/answers', {
+      method: 'PATCH',
+      body: { answers: normalizeAnswers(answers) }
     });
   }
 
-  window.KP_EXAM_ENGINE = { startAttempt, submitAttempt };
+  async function submitAttempt(attemptId, answers) {
+    return request('/api/attempts/' + encodeURIComponent(attemptId) + '/submit', {
+      method: 'POST',
+      body: { answers: normalizeAnswers(answers) }
+    });
+  }
+
+  async function getHistory({ page = 1, limit = 20 } = {}) {
+    return request('/api/attempts?page=' + encodeURIComponent(page) + '&limit=' + encodeURIComponent(limit));
+  }
+
+  window.KP_EXAM_ENGINE = { startAttempt, saveAnswers, submitAttempt, getHistory };
 })();
