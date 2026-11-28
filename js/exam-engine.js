@@ -46,11 +46,13 @@
     };
   }
 
-  async function startAttempt({ examYearId, questionCount, mode = 'practice' }) {
+  async function startAttempt({ examYearId, examSetId = null, subcategoryId = null, questionCount, mode = 'practice' }) {
     const data = await request('/api/attempts', {
       method: 'POST',
       body: {
-        exam_year_id: Number(examYearId),
+        exam_year_id: examYearId == null ? null : Number(examYearId),
+        exam_set_id: examSetId == null ? null : Number(examSetId),
+        subcategory_id: subcategoryId || null,
         question_count: questionCount,
         mode
       }
@@ -64,6 +66,7 @@
       id: attempt.id,
       mode: attempt.mode || mode,
       examYearLabel: attempt.exam_year_label || '',
+      examSetTitle: attempt.exam_set_title || '',
       startedAt: attempt.started_at || new Date().toISOString(),
       deadlineAt: attempt.deadline_at || null,
       timeLimitSeconds: attempt.time_limit_seconds ?? null,
@@ -101,6 +104,7 @@
       id: attempt.id,
       mode: attempt.mode || 'practice',
       examYearLabel: attempt.exam_year_label || '',
+      examSetTitle: attempt.exam_set_title || '',
       startedAt: attempt.started_at || '',
       deadlineAt: attempt.deadline_at || null,
       timeLimitSeconds: attempt.time_limit_seconds ?? null,
