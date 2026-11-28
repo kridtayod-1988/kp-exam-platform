@@ -183,18 +183,22 @@
     if(e.target.matches('input[name="exam-answer"]')&&activeAttempt){
       const q=activeAttempt.questions[currentQuestionIndex];
       attemptAnswers[String(q.id)]=Number(e.target.value);
-      renderAttempt();
+      queueAutosave();
     }
   });
   root.addEventListener('click',e=>{
     const go=e.target.closest('[data-go]');
     if(go){show(go.dataset.go);return;}
-    if(e.target.id==='start-practice'){beginAttempt();return;}
+    if(e.target.id==='start-practice'){beginAttempt('practice');return;}
+    if(e.target.id==='start-mock'){beginAttempt('simulation');return;}
+    const historyPage=e.target.closest('[data-history-page]');
+    if(historyPage&&!historyPage.disabled){loadResults(Number(historyPage.dataset.historyPage)).catch(err=>notify(err.message));return;}
     if(e.target.id==='prev-question'&&currentQuestionIndex>0){currentQuestionIndex--;renderAttempt();return;}
     if(e.target.id==='next-question'&&currentQuestionIndex<activeAttempt.questions.length-1){currentQuestionIndex++;renderAttempt();return;}
     if(e.target.id==='review-submit'){submitAttempt();return;}
-    if(e.target.id==='exit-attempt'){if(window.confirm('ออกจากข้อสอบหรือไม่? คำตอบที่ยังไม่ส่งจะไม่ถูกบันทึก')){activeAttempt=null;attemptAnswers={};show('by-year');}return;}
+    if(e.target.id==='exit-attempt'){if(window.confirm('ออกจากข้อสอบหรือไม่? คำตอบที่บันทึกแล้วจะยังอยู่ในประวัติ แต่ชุดนี้ยังไม่รองรับการกลับมาทำต่อ')){clearTimeout(autosaveTimer);clearInterval(countdownTimer);activeAttempt=null;attemptAnswers={};show('by-year');}return;}
     if(e.target.id==='return-practice'){show('by-year');return;}
+    if(e.target.id==='return-history'){show('results');return;}
     const jump=e.target.closest('[data-question-index]');
     if(jump&&activeAttempt){currentQuestionIndex=Number(jump.dataset.questionIndex);renderAttempt();}
   });
@@ -202,6 +206,6 @@
   scrim.addEventListener('click',closeMenu);
   document.getElementById('help-button').addEventListener('click',()=>notify('ศูนย์ช่วยเหลือ KP e-Exam อยู่ระหว่างจัดทำ'));
   document.getElementById('year-now').textContent=new Date().getFullYear();
-  if(cfg.apiBaseUrl)document.getElementById('environment-label').textContent='เชื่อมต่อ API สำหรับข้อมูลปีสอบ';
+  if(cfg.apiBaseUrl)document.getElementById('environment-label').textContent='เชื่อมต่อ API Exam Engine';
   show('dashboard');
 })();
