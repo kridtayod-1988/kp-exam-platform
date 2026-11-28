@@ -127,7 +127,7 @@ function makeDb({ questionRows = questions(), attempt = null } = {}) {
         return [{ meta: { changes: 0 } }];
       }
       const [claim, ...writes] = statements;
-      state.attempt.status = "submitted";
+      state.attempt.status = claim.sql.includes("status = 'expired'") ? "expired" : "submitted";
       state.attempt.score = claim.values[0];
       state.attempt.submitted_at = claim.values[1];
       for (const statement of writes) {
