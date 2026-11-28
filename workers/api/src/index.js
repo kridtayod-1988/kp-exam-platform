@@ -89,25 +89,62 @@ async function getExamYears(env) {
 async function getCatalog(env) {
   const [groups, categories] = await Promise.all([
     env.DB.prepare(
-      `SELECT id, name, slug
-         FROM subject_groups
-        WHERE is_active = 1
-        ORDER BY sort_order, name`
+      `SELECT sg.id, sg.name, sg.slug,
+              COUNT(DISTINCT sc.id) AS subject_count,
+              COUNT(DISTINCT q.id) AS question_count
+         FROM subject_groups sg
+         LEFT JOIN subcategories sc
+           ON sc.subject_group_id = sg.id AND sc.is_active = 1
+         LEFT JOIN questions q
+           ON q.subcategory_id = sc.id AND q.is_active = 1
+        WHERE sg.is_active = 1
+        GROUP BY sg.id, sg.name, sg.slug
+        ORDER BY sg.sort_order, sg.name`
     ).all(),
     env.DB.prepare(
-      `SELECT sc.id, sc.subject_group_id, sc.name, sc.slug, sc.is_gpa3
+      `SELECT sc.id, sc.subject_group_id, sc.name, sc.slug, sc.is_gpa3,
+              COUNT(q.id) AS question_count,
+              MAX(q.exam_year_id) AS latest_exam_year_id
          FROM subcategories sc
          INNER JOIN subject_groups sg
            ON sg.id = sc.subject_group_id AND sg.is_active = 1
+         LEFT JOIN questions q
+           ON q.subcategory_id = sc.id AND q.is_active = 1
         WHERE sc.is_active = 1
-        ORDER BY sc.sort_order, sc.name`
+        GROUP BY sc.id, sc.subject_group_id, sc.name, sc.slug, sc.is_gpa3, sc.sort_order
+        ORDER BY sg.sort_order, sc.sort_order, sc.name`
     ).all()
   ]);
 
   return {
     subject_groups: groups.results || [],
-    subcategories: categories.results || []
+    subcategories: (categories.results || []).map(row => ({
+      ...row,
+      question_count: Number(row.question_count || 0)
+    }))
   };
+}
+
+async function getExamSets(env) {
+  const result = await env.DB.prepare(
+    `SELECT es.id, es.exam_year_id, ey.year_be, es.title, es.exam_date,
+            es.session_label, es.default_question_count, es.source_status,
+            es.source_note, es.created_at, COUNT(q.id) AS question_count
+       FROM exam_sets es
+       INNER JOIN exam_years ey ON ey.id = es.exam_year_id
+       LEFT JOIN questions q ON q.exam_set_id = es.id AND q.is_active = 1
+      WHERE es.is_active = 1 AND ey.is_active = 1
+      GROUP BY es.id, es.exam_year_id, ey.year_be, es.title, es.exam_date,
+               es.session_label, es.default_question_count, es.source_status,
+               es.source_note, es.created_at
+      ORDER BY es.exam_date DESC, es.id DESC`
+  ).all();
+
+  return (result.results || []).map(row => ({
+    ...row,
+    question_count: Number(row.question_count || 0),
+    default_question_count: Number(row.default_question_count || 50)
+  }));
 }
 
 async function getYearQuestions(env, yearId, page, limit) {
@@ -266,6 +303,11 @@ export default {
       if (url.pathname === "/api/catalog") {
         const catalog = await getCatalog(env);
         return json({ data: catalog }, 200, headers);
+      }
+
+      if (url.pathname === "/api/exam-sets") {
+        const examSets = await getExamSets(env);
+        return json({ data: { exam_sets: examSets } }, 200, headers);
       }
 
       const match = url.pathname.match(/^\/api\/exam-years\/(\d+)\/questions$/);
