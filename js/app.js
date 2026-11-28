@@ -100,7 +100,10 @@
         await window.KP_EXAM_ENGINE.saveAnswers(activeAttempt.id,currentAnswers());
         if(sequence===autosaveSequence){autosaveState='saved';renderAttempt();}
       }catch(error){
-        if(sequence===autosaveSequence){autosaveState='error';renderAttempt();notify(error.message||'บันทึกคำตอบไม่สำเร็จ');}
+        if(sequence===autosaveSequence){
+          if(String(error.message||'').includes('หมดเวลา')){submitAttempt(true);return;}
+          autosaveState='error';renderAttempt();notify(error.message||'บันทึกคำตอบไม่สำเร็จ');
+        }
       }
     },450);
   }
@@ -198,7 +201,7 @@
       queueAutosave();
     }
   });
-  root.addEventListener('click',e=>{
+  root.addEventListener('click',async e=>{
     const go=e.target.closest('[data-go]');
     if(go){show(go.dataset.go);return;}
     if(e.target.id==='start-practice'){beginAttempt('practice');return;}
@@ -210,7 +213,19 @@
     if(e.target.id==='prev-question'&&currentQuestionIndex>0){currentQuestionIndex--;renderAttempt();return;}
     if(e.target.id==='next-question'&&currentQuestionIndex<activeAttempt.questions.length-1){currentQuestionIndex++;renderAttempt();return;}
     if(e.target.id==='review-submit'){submitAttempt();return;}
-    if(e.target.id==='exit-attempt'){if(window.confirm('ออกจากข้อสอบหรือไม่? คำตอบที่บันทึกแล้วจะยังอยู่ในประวัติ แต่ชุดนี้ยังไม่รองรับการกลับมาทำต่อ')){clearTimeout(autosaveTimer);clearInterval(countdownTimer);activeAttempt=null;attemptAnswers={};show('by-year');}return;}
+    if(e.target.id==='exit-attempt'){
+      if(window.confirm('ออกจากข้อสอบหรือไม่? ระบบจะบันทึกคำตอบล่าสุดก่อนออก และสามารถกลับมาทำต่อจากประวัติการสอบได้')){
+        clearTimeout(autosaveTimer);autosaveSequence++;
+        try{
+          await window.KP_EXAM_ENGINE.saveAnswers(activeAttempt.id,currentAnswers());
+          clearInterval(countdownTimer);activeAttempt=null;attemptAnswers={};show('results');
+        }catch(error){
+          if(String(error.message||'').includes('หมดเวลา')){await submitAttempt(true);}
+          else notify('ยังออกจากข้อสอบไม่ได้ เพราะบันทึกคำตอบล่าสุดไม่สำเร็จ: '+(error.message||'ลองอีกครั้ง'));
+        }
+      }
+      return;
+    }
     if(e.target.id==='return-practice'){show('by-year');return;}
     if(e.target.id==='return-history'){show('results');return;}
     const jump=e.target.closest('[data-question-index]');
