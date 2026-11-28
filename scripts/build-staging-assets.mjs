@@ -1,7 +1,8 @@
 import { copyFile, mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = join(root, "public");
 const files = [
   "index.html",
