@@ -153,29 +153,30 @@
       if(button){button.disabled=false;button.textContent=simulation?"เริ่ม Mock Exam":"เริ่มทำข้อสอบแยกปี";}
     }
   }
-  async function submitAttempt(){
+  async function submitAttempt(automatic=false){
     if(!activeAttempt||submitting)return;
     const unanswered=activeAttempt.questions.length-Object.keys(attemptAnswers).length;
-    if(unanswered>0&&!window.confirm('ยังไม่ได้ตอบ '+unanswered+' ข้อ ต้องการส่งข้อสอบหรือไม่?'))return;
+    if(!automatic&&unanswered>0&&!window.confirm("ยังไม่ได้ตอบ "+unanswered+" ข้อ ต้องการส่งข้อสอบหรือไม่?"))return;
     submitting=true;
-    const button=document.getElementById('review-submit');
-    if(button){button.disabled=true;button.textContent='กำลังส่งข้อสอบ…';}
+    clearTimeout(autosaveTimer);clearInterval(countdownTimer);
+    const button=document.getElementById("review-submit");
+    if(button){button.disabled=true;button.textContent="กำลังส่งข้อสอบ…";}
     try{
-      const result=await window.KP_EXAM_ENGINE.submitAttempt(activeAttempt.id,
-        activeAttempt.questions.filter(q=>attemptAnswers[String(q.id)]!==undefined)
-          .map(q=>({questionId:q.id,selectedIndex:attemptAnswers[String(q.id)]})));
+      const result=await window.KP_EXAM_ENGINE.submitAttempt(activeAttempt.id,currentAnswers());
       const data=result.result||result;
       const score=Number(data.score??data.correct_count);
       const total=Number(data.total??activeAttempt.questions.length);
       const percentage=Number(data.percentage??(total?score/total*100:0));
-      root.innerHTML=`<div class="page-intro"><div><h2>ผลการสอบ</h2><p>ส่งข้อสอบเรียบร้อย ระบบตรวจคะแนนจาก Server แล้ว</p></div></div>
-        <section class="panel result-summary"><div class="result-score">${Number.isFinite(score)?score:'—'} <small>/ ${Number.isFinite(total)?total:activeAttempt.questions.length}</small></div>
-        <h3>คะแนนที่ได้</h3><div class="result-percent">${Number.isFinite(percentage)?percentage.toFixed(1):'—'}%</div>
-        <p class="muted">Attempt ID: ${esc(activeAttempt.id)}</p><button class="btn" id="return-practice">กลับไปเลือกชุดข้อสอบ</button></section>`;
-      activeAttempt=null;attemptAnswers={};notify('บันทึกผลการสอบแล้ว');
+      const expired=data.status==="expired";
+      root.innerHTML=\`<div class="page-intro"><div><h2>\${expired?"หมดเวลาสอบ":"ผลการสอบ"}</h2><p>\${expired?"ระบบปิดรับคำตอบและบันทึกคะแนนจากคำตอบที่บันทึกไว้":"ระบบตรวจคะแนนจาก Server แล้ว"}</p></div></div>
+        <section class="panel result-summary"><div class="result-score">\${Number.isFinite(score)?score:"—"} <small>/ \${Number.isFinite(total)?total:activeAttempt.questions.length}</small></div>
+        <h3>คะแนนที่ได้</h3><div class="result-percent">\${Number.isFinite(percentage)?percentage.toFixed(1):"—"}%</div>
+        <p class="muted">Attempt ID: \${esc(activeAttempt.id)}</p><button class="btn" id="return-history">ดูประวัติการสอบ</button></section>\`;
+      activeAttempt=null;attemptAnswers={};notify(expired?"บันทึกผลเมื่อหมดเวลาแล้ว":"บันทึกผลการสอบแล้ว");
     }catch(error){
-      notify(error.message||'ส่งข้อสอบไม่สำเร็จ กรุณาลองอีกครั้ง');
-      if(button){button.disabled=false;button.textContent='ตรวจทานและส่งข้อสอบ';}
+      notify(error.message||"ส่งข้อสอบไม่สำเร็จ กรุณาลองอีกครั้ง");
+      if(button){button.disabled=false;button.textContent="ตรวจทานและส่งข้อสอบ";}
+      if(activeAttempt?.deadlineAt&&Date.parse(activeAttempt.deadlineAt)<=Date.now())setTimeout(()=>submitAttempt(true),1000);
     }finally{submitting=false;}
   }
   root.addEventListener('change',e=>{
