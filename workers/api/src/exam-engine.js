@@ -271,7 +271,8 @@ async function expireAttempt(env, attempt) {
     "WHERE ua.attempt_id = ? AND ua.selected_index = q.correct_index"
   ).bind(attempt.id).first();
   const score = Number(scoreRow?.score || 0);
-  const marker = new Date().toISOString();
+  const randomFraction = crypto.getRandomValues(new Uint32Array(1))[0].toString().padStart(10, '0');
+  const marker = new Date().toISOString().replace(/(\\.\\d{3})Z$/, '$1' + randomFraction + 'Z');
   const results = await env.DB.batch([
     env.DB.prepare(
       "UPDATE user_attempts SET status = 'expired', score = ?, submitted_at = ? " +
