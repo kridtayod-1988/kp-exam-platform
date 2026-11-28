@@ -29,6 +29,9 @@ on:
       - "index.html"
       - "_headers"
       - "wrangler.jsonc"
+      - "package.json"
+      - "scripts/**"
+      - ".gitignore"
       - ".github/workflows/exam-engine-api.yml"
 
 jobs:
