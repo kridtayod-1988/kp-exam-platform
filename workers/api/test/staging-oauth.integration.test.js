@@ -23,3 +23,20 @@ test("Staging Google OAuth start uses the configured callback and binds state co
   assert.ok(stateCookie, "OAuth state cookie must be set");
   assert.equal(stateCookie[1], authorizationUrl.searchParams.get("state"));
 });
+
+
+const frontendOrigin = process.env.FRONTEND_PREVIEW_ORIGIN;
+
+test("Staging frontend serves initialized and serialized autosave state", {
+  skip: !frontendOrigin
+}, async () => {
+  const response = await fetch(new URL("/js/app.js?state-smoke=" + Date.now(), frontendOrigin), {
+    signal: AbortSignal.timeout(15000)
+  });
+  assert.equal(response.status, 200);
+  const source = await response.text();
+  assert.match(source, /let activeAttempt=null;/);
+  assert.match(source, /let autosaveInFlight=false;/);
+  assert.match(source, /if\\(autosaveInFlight\\)\\{autosaveQueued=true;return;\\}/);
+  assert.match(source, /สามารถกลับมาทำต่อจากประวัติการสอบได้/);
+});
