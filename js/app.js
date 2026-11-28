@@ -134,10 +134,22 @@
       const mode=item.mode==='simulation'?'Mock Exam':'ฝึกทั่วไป';
       const score=item.score==null?'—':item.score+' / '+item.question_count;
       const percent=item.percentage==null?'—':Number(item.percentage).toFixed(1)+'%';
-      return '<tr><td>'+esc(item.exam_year_label||('ปีสอบ #'+item.exam_year_id))+'</td><td>'+esc(mode)+'</td><td>'+esc(score)+'</td><td>'+esc(percent)+'</td><td>'+esc(status)+'</td><td>'+esc(item.started_at||'')+'</td></tr>';
+      const action=item.status==='in_progress'?'<button class="btn soft small" data-resume-attempt="'+esc(item.id)+'">ทำต่อ</button>':'—';
+      return '<tr><td>'+esc(item.exam_year_label||('ปีสอบ #'+item.exam_year_id))+'</td><td>'+esc(mode)+'</td><td>'+esc(score)+'</td><td>'+esc(percent)+'</td><td>'+esc(status)+'</td><td>'+esc(item.started_at||'')+'</td><td>'+action+'</td></tr>';
     }).join('');
-    panel.innerHTML=rows?'<div class="table-wrap"><table><thead><tr><th>ปีสอบ</th><th>รูปแบบ</th><th>คะแนน</th><th>เปอร์เซ็นต์</th><th>สถานะ</th><th>เริ่มสอบ</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="form-actions"><button class="btn soft small" data-history-page="'+(page-1)+'" '+(page<=1?'disabled':'')+'>ก่อนหน้า</button><span class="hint">หน้า '+page+' / '+(data.pagination?.total_pages||1)+'</span><button class="btn soft small" data-history-page="'+(page+1)+'" '+(page>=(data.pagination?.total_pages||1)?'disabled':'')+'>ถัดไป</button></div>':'<div class="empty"><strong>ไม่พบประวัติการสอบ</strong>เริ่มฝึกข้อสอบเพื่อสร้างประวัติของคุณ</div>';
+    panel.innerHTML=rows?'<div class="table-wrap"><table><thead><tr><th>ปีสอบ</th><th>รูปแบบ</th><th>คะแนน</th><th>เปอร์เซ็นต์</th><th>สถานะ</th><th>เริ่มสอบ</th><th>การทำรายการ</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="form-actions"><button class="btn soft small" data-history-page="'+(page-1)+'" '+(page<=1?'disabled':'')+'>ก่อนหน้า</button><span class="hint">หน้า '+page+' / '+(data.pagination?.total_pages||1)+'</span><button class="btn soft small" data-history-page="'+(page+1)+'" '+(page>=(data.pagination?.total_pages||1)?'disabled':'')+'>ถัดไป</button></div>':'<div class="empty"><strong>ไม่พบประวัติการสอบ</strong>เริ่มฝึกข้อสอบเพื่อสร้างประวัติของคุณ</div>';
   }
+  async function resumeSavedAttempt(attemptId){
+    try{
+      activeAttempt=await window.KP_EXAM_ENGINE.resumeAttempt(attemptId);
+      attemptAnswers={};
+      activeAttempt.questions.forEach(q=>{if(q.selectedIndex!==null)attemptAnswers[String(q.id)]=q.selectedIndex;});
+      currentQuestionIndex=Math.max(0,activeAttempt.questions.findIndex(q=>q.selectedIndex===null));
+      autosaveState="saved";
+      renderAttempt();startCountdown();
+    }catch(error){notify(error.message||"ไม่สามารถกลับมาทำข้อสอบต่อได้");show("results");}
+  }
+
   async function beginAttempt(mode="practice"){
     const simulation=mode==="simulation";
     const year=document.getElementById(simulation?"mock-year":"exam-year")?.value;
@@ -191,6 +203,8 @@
     if(go){show(go.dataset.go);return;}
     if(e.target.id==='start-practice'){beginAttempt('practice');return;}
     if(e.target.id==='start-mock'){beginAttempt('simulation');return;}
+    const resumeButton=e.target.closest('[data-resume-attempt]');
+    if(resumeButton){resumeSavedAttempt(resumeButton.dataset.resumeAttempt);return;}
     const historyPage=e.target.closest('[data-history-page]');
     if(historyPage&&!historyPage.disabled){loadResults(Number(historyPage.dataset.historyPage)).catch(err=>notify(err.message));return;}
     if(e.target.id==='prev-question'&&currentQuestionIndex>0){currentQuestionIndex--;renderAttempt();return;}
