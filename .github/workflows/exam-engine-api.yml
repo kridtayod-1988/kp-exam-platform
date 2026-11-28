@@ -41,6 +41,8 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm test
+      - name: Validate frontend JavaScript syntax
+        run: node --check ../../js/app.js && node --check ../../js/exam-engine.js
       - name: Validate non-auth branch Wrangler configuration without deploying
         if: github.ref != 'refs/heads/feat/auth-security-phase1-2' && github.head_ref != 'feat/auth-security-phase1-2' && github.ref != 'refs/heads/feat/d1-exam-engine-attempt-api' && github.head_ref != 'feat/d1-exam-engine-attempt-api' && github.ref != 'refs/heads/feat/auth-security-phase3' && github.head_ref != 'feat/auth-security-phase3' && github.ref != 'refs/heads/feat/admin-api-staging' && github.head_ref != 'feat/admin-api-staging' && github.ref != 'refs/heads/feat/admin-api-mainline' && github.head_ref != 'feat/admin-api-mainline'
         run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
