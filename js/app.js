@@ -66,6 +66,17 @@
   document.getElementById('main-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)show(b.dataset.view);});
   window.addEventListener('kp-auth-state',event=>{const badge=document.getElementById('member-role-badge');if(!badge)return;const profile=event.detail?.profile;const role=profile?.role;if(!event.detail?.authenticated){badge.textContent='Guest';badge.className='badge gray';return;}badge.textContent=role==='admin'?'Admin':'User';badge.className=role==='admin'?'badge':'badge gray';});
 
+  let activeAttempt=null;
+  let attemptAnswers={};
+  let currentQuestionIndex=0;
+  let submitting=false;
+  let autosaveTimer=null;
+  let autosaveState='saved';
+  let autosaveSequence=0;
+  let autosaveInFlight=false;
+  let autosaveQueued=false;
+  let countdownTimer=null;
+
   function renderAttempt(){
     if(!activeAttempt)return;
     const q=activeAttempt.questions[currentQuestionIndex];
@@ -95,6 +106,8 @@
     const sequence=++autosaveSequence;
     autosaveTimer=setTimeout(async()=>{
       if(!activeAttempt)return;
+      if(autosaveInFlight){autosaveQueued=true;return;}
+      autosaveInFlight=true;
       autosaveState='saving';renderAttempt();
       try{
         await window.KP_EXAM_ENGINE.saveAnswers(activeAttempt.id,currentAnswers());
@@ -104,6 +117,9 @@
           if(String(error.message||'').includes('หมดเวลา')){submitAttempt(true);return;}
           autosaveState='error';renderAttempt();notify(error.message||'บันทึกคำตอบไม่สำเร็จ');
         }
+      }finally{
+        autosaveInFlight=false;
+        if(autosaveQueued&&activeAttempt){autosaveQueued=false;queueAutosave();}
       }
     },450);
   }
@@ -173,7 +189,7 @@
     const unanswered=activeAttempt.questions.length-Object.keys(attemptAnswers).length;
     if(!automatic&&unanswered>0&&!window.confirm("ยังไม่ได้ตอบ "+unanswered+" ข้อ ต้องการส่งข้อสอบหรือไม่?"))return;
     submitting=true;
-    clearTimeout(autosaveTimer);clearInterval(countdownTimer);
+    clearTimeout(autosaveTimer);clearInterval(countdownTimer);autosaveQueued=false;autosaveSequence++;
     const button=document.getElementById("review-submit");
     if(button){button.disabled=true;button.textContent="กำลังส่งข้อสอบ…";}
     try{
@@ -215,7 +231,7 @@
     if(e.target.id==='review-submit'){submitAttempt();return;}
     if(e.target.id==='exit-attempt'){
       if(window.confirm('ออกจากข้อสอบหรือไม่? ระบบจะบันทึกคำตอบล่าสุดก่อนออก และสามารถกลับมาทำต่อจากประวัติการสอบได้')){
-        clearTimeout(autosaveTimer);autosaveSequence++;
+        clearTimeout(autosaveTimer);autosaveQueued=false;autosaveSequence++;
         try{
           await window.KP_EXAM_ENGINE.saveAnswers(activeAttempt.id,currentAnswers());
           clearInterval(countdownTimer);activeAttempt=null;attemptAnswers={};show('results');
